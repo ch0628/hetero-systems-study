@@ -1,0 +1,40 @@
+{
+  "runtime": "onnxruntime",
+  "provider": "CPUExecutionProvider",
+  "model": "resnet18",
+  "model_path": "/home/steelho/study/hetero-systems-study/benchmark/data/onnx_models/resnet18_b1.onnx",
+  "input_path": "/home/steelho/study/hetero-systems-study/benchmark/data/inputs/input_b1.npy",
+  "output_path": "/home/steelho/study/hetero-systems-study/benchmark/results/onnx/onnx_output_b1.npy",
+  "batch_size": 1,
+  "input_shape": [
+    1,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    1,
+    1000
+  ],
+  "input_dtype": "float32",
+  "intra_op_threads": 4,
+  "inter_op_threads": 1,
+  "execution_mode": "ORT_SEQUENTIAL",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 0.4951209994032979,
+  "session_load_ms": 91.9928269868251,
+  "rss_before_session_mb": 42.96484375,
+  "rss_after_session_mb": 141.61328125,
+  "session_rss_delta_mb": 98.6484375,
+  "first_inference_ms": 15.872794989263639,
+  "mean_batch_latency_ms": 8.232788339664694,
+  "median_batch_latency_ms": 8.213510998757556,
+  "p95_batch_latency_ms": 8.399106156139169,
+  "min_batch_latency_ms": 8.131839014822617,
+  "max_batch_latency_ms": 8.563821000279859,
+  "per_image_latency_ms": 8.232788339664694,
+  "throughput_images_per_second": 121.4655301147616,
+  "final_rss_mb": 147.515625,
+  "peak_rss_mb": 146.8984375
+}

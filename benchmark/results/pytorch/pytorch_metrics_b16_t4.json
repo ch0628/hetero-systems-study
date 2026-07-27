@@ -1,0 +1,39 @@
+{
+  "runtime": "pytorch",
+  "device": "cpu",
+  "model": "resnet18",
+  "input_path": "/home/steelho/study/hetero-systems-study/benchmark/data/inputs/input_b16.npy",
+  "output_path": "/home/steelho/study/hetero-systems-study/benchmark/results/pytorch/pytorch_output_b16.npy",
+  "batch_size": 16,
+  "input_shape": [
+    16,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    16,
+    1000
+  ],
+  "input_dtype": "float32",
+  "intra_op_threads": 4,
+  "inter_op_threads": 1,
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 2.567068993812427,
+  "tensor_conversion_ms": 0.02959099947474897,
+  "model_initialization_ms": 118.25388600118458,
+  "rss_before_model_mb": 638.50390625,
+  "rss_after_model_mb": 699.7890625,
+  "model_rss_delta_mb": 61.28515625,
+  "first_inference_ms": 290.9530140168499,
+  "mean_batch_latency_ms": 258.13288850312045,
+  "median_batch_latency_ms": 257.75047049683053,
+  "p95_batch_latency_ms": 272.11916199157713,
+  "min_batch_latency_ms": 219.90468798321672,
+  "max_batch_latency_ms": 284.73291400587186,
+  "per_image_latency_ms": 16.13330553144503,
+  "throughput_images_per_second": 61.983577888048096,
+  "final_rss_mb": 766.05078125,
+  "peak_rss_mb": 863.91015625
+}

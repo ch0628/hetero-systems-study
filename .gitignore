@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Locally archived files
+local_archive/
+
+# Generated model and array files
+*.npy
+*.onnx
+*.onnx.data
+
+# Profiling trace files
+*.pt.trace.json
