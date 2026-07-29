@@ -1,0 +1,33 @@
+Hostname: moana-r3
+Device: cuda
+Batch: 4
+Input shape: (4, 3, 224, 224)
+Output shape: (4, 1000)
+Model initialization: 562.5119 ms
+Model transfer: 15.0794 ms
+Input loading: 7.5529 ms
+Tensor conversion: 0.0658 ms
+Input transfer: 0.2938 ms
+First inference: 549.8177 ms
+Output saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_output_cuda_b4.npy
+
+GPU: NVIDIA GeForce RTX 3090
+PyTorch: 2.4.0+cu121
+CUDA runtime: 12.1
+cuDNN: 90100
+
+=== CUDA GPU-only inference ===
+Mean: 4.2221 ms
+Median: 4.2100 ms
+P95: 4.2966 ms
+Min: 4.1793 ms
+Max: 4.3457 ms
+
+=== CUDA End-to-End inference ===
+Mean: 4.5772 ms
+Median: 4.5509 ms
+P95: 4.6487 ms
+Min: 4.5079 ms
+Max: 9.2311 ms
+
+Metrics saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_metrics_cuda_b4.json

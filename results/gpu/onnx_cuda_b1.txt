@@ -1,0 +1,26 @@
+Hostname: moana-r3
+Provider request: cuda
+Actual providers: ['CUDAExecutionProvider', 'CPUExecutionProvider']
+Batch: 1
+Input shape: (1, 3, 224, 224)
+Output shape: (1, 1000)
+Input loading: 1.7136 ms
+Session loading: 1069.2381 ms
+First inference: 962.8064 ms
+Output saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b1.npy
+
+=== ONNX CUDA End-to-End ===
+Mean: 1.1037 ms
+Median: 1.0931 ms
+P95: 1.2201 ms
+Min: 1.0768 ms
+Max: 1.3846 ms
+
+=== ONNX CUDA GPU-only IOBinding ===
+Mean: 0.9938 ms
+Median: 0.9883 ms
+P95: 1.0121 ms
+Min: 0.9695 ms
+Max: 1.1683 ms
+
+Metrics saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_metrics_cuda_b1.json

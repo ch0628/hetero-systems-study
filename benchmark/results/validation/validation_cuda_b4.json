@@ -1,0 +1,28 @@
+{
+  "device": "cuda",
+  "batch_size": 4,
+  "pytorch_output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_output_cuda_b4.npy",
+  "onnx_output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b4.npy",
+  "output_shape": [
+    4,
+    1000
+  ],
+  "max_absolute_difference": 0.006211757659912109,
+  "mean_absolute_difference": 0.001130869728513062,
+  "rtol": 0.0001,
+  "atol": 1e-05,
+  "outputs_all_close": false,
+  "pytorch_top1": [
+    107,
+    107,
+    107,
+    107
+  ],
+  "onnx_top1": [
+    107,
+    107,
+    107,
+    107
+  ],
+  "same_top1": true
+}
