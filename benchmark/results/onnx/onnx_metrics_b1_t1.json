@@ -1,0 +1,46 @@
+{
+  "runtime": "onnxruntime",
+  "onnxruntime_version": "1.23.2",
+  "hostname": "moana-r1",
+  "provider_request": "cpu",
+  "session_providers": [
+    "CPUExecutionProvider"
+  ],
+  "model": "resnet18",
+  "model_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/onnx_models/resnet18_b1.onnx",
+  "input_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/inputs/input_b1.npy",
+  "output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_b1.npy",
+  "batch_size": 1,
+  "input_shape": [
+    1,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    1,
+    1000
+  ],
+  "input_dtype": "float32",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 1.3957470655441284,
+  "session_load_ms": 109.31222187355161,
+  "first_inference_ms": 43.04150398820639,
+  "rss_before_session_mb": 372.36328125,
+  "rss_after_session_mb": 495.203125,
+  "session_rss_delta_mb": 122.83984375,
+  "intra_op_threads": 1,
+  "inter_op_threads": 1,
+  "cpu_inference": {
+    "mean_batch_latency_ms": 41.44496698398143,
+    "median_batch_latency_ms": 41.44449450541288,
+    "p95_batch_latency_ms": 41.48174168076366,
+    "min_batch_latency_ms": 41.38131998479366,
+    "max_batch_latency_ms": 41.66475613601506,
+    "per_image_latency_ms": 41.44496698398143,
+    "throughput_images_per_second": 24.128382111789403
+  },
+  "final_rss_mb": 500.25390625,
+  "peak_rss_mb": 513.98046875
+}

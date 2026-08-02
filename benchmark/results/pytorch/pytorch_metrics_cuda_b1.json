@@ -1,0 +1,60 @@
+{
+  "runtime": "pytorch",
+  "hostname": "moana-r3",
+  "device": "cuda",
+  "model": "resnet18",
+  "batch_size": 1,
+  "input_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/inputs/input_b1.npy",
+  "output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_output_cuda_b1.npy",
+  "input_shape": [
+    1,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    1,
+    1000
+  ],
+  "input_dtype": "float32",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 83.09781085699797,
+  "tensor_conversion_ms": 0.5548188928514719,
+  "model_initialization_ms": 764.99864901416,
+  "model_transfer_ms": 18.76431191340089,
+  "input_transfer_ms": 0.42530009523034096,
+  "first_inference_ms": 2317.717944039032,
+  "rss_before_model_mb": 485.8515625,
+  "rss_after_model_mb": 541.234375,
+  "torch_version": "2.4.0+cu121",
+  "cuda_runtime": "12.1",
+  "cudnn_version": 90100,
+  "gpu_name": "NVIDIA GeForce RTX 3090",
+  "gpu_total_memory_mb": 24259.6875,
+  "host_memory_pinned": false,
+  "gpu_only": {
+    "mean_batch_latency_ms": 4.100851779027532,
+    "median_batch_latency_ms": 4.1063359240069985,
+    "p95_batch_latency_ms": 4.169782635290176,
+    "min_batch_latency_ms": 4.043626133352518,
+    "max_batch_latency_ms": 4.234116058796644,
+    "per_image_latency_ms": 4.100851779027532,
+    "throughput_images_per_second": 243.85177857784905,
+    "peak_allocated_mb": 63.09326171875,
+    "peak_reserved_mb": 90.0
+  },
+  "end_to_end": {
+    "mean_batch_latency_ms": 4.306689046788961,
+    "median_batch_latency_ms": 4.292585421353579,
+    "p95_batch_latency_ms": 4.392339335754514,
+    "min_batch_latency_ms": 4.253085004165769,
+    "max_batch_latency_ms": 4.450286040082574,
+    "per_image_latency_ms": 4.306689046788961,
+    "throughput_images_per_second": 232.19693577496466,
+    "peak_allocated_mb": 63.66748046875,
+    "peak_reserved_mb": 90.0
+  },
+  "final_rss_mb": 820.703125,
+  "peak_rss_mb": 820.703125
+}

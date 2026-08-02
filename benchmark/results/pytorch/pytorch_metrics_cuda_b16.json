@@ -1,0 +1,60 @@
+{
+  "runtime": "pytorch",
+  "hostname": "moana-r3",
+  "device": "cuda",
+  "model": "resnet18",
+  "batch_size": 16,
+  "input_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/inputs/input_b16.npy",
+  "output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_output_cuda_b16.npy",
+  "input_shape": [
+    16,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    16,
+    1000
+  ],
+  "input_dtype": "float32",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 16.842734068632126,
+  "tensor_conversion_ms": 0.08128001354634762,
+  "model_initialization_ms": 400.424966821447,
+  "model_transfer_ms": 15.698954928666353,
+  "input_transfer_ms": 0.9545490611344576,
+  "first_inference_ms": 551.8981630448252,
+  "rss_before_model_mb": 489.26953125,
+  "rss_after_model_mb": 544.2265625,
+  "torch_version": "2.4.0+cu121",
+  "cuda_runtime": "12.1",
+  "cudnn_version": 90100,
+  "gpu_name": "NVIDIA GeForce RTX 3090",
+  "gpu_total_memory_mb": 24259.6875,
+  "host_memory_pinned": false,
+  "gpu_only": {
+    "mean_batch_latency_ms": 4.233800387009978,
+    "median_batch_latency_ms": 4.2267064563930035,
+    "p95_batch_latency_ms": 4.312487039715052,
+    "min_batch_latency_ms": 4.175885114818811,
+    "max_batch_latency_ms": 5.965424934402108,
+    "per_image_latency_ms": 0.26461252418812364,
+    "throughput_images_per_second": 3779.1106186986826,
+    "peak_allocated_mb": 162.06396484375,
+    "peak_reserved_mb": 216.0
+  },
+  "end_to_end": {
+    "mean_batch_latency_ms": 5.134982049154739,
+    "median_batch_latency_ms": 5.134460050612688,
+    "p95_batch_latency_ms": 5.217627133242786,
+    "min_batch_latency_ms": 5.025354912504554,
+    "max_batch_latency_ms": 5.371734034270048,
+    "per_image_latency_ms": 0.3209363780721712,
+    "throughput_images_per_second": 3115.8823627501743,
+    "peak_allocated_mb": 171.25146484375,
+    "peak_reserved_mb": 216.0
+  },
+  "final_rss_mb": 845.421875,
+  "peak_rss_mb": 845.421875
+}

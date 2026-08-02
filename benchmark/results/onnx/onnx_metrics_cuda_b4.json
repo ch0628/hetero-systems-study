@@ -1,0 +1,57 @@
+{
+  "runtime": "onnxruntime",
+  "onnxruntime_version": "1.23.2",
+  "hostname": "moana-r3",
+  "provider_request": "cuda",
+  "session_providers": [
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "model": "resnet18",
+  "model_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/onnx_models/resnet18_b4.onnx",
+  "input_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/inputs/input_b4.npy",
+  "output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b4.npy",
+  "batch_size": 4,
+  "input_shape": [
+    4,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    4,
+    1000
+  ],
+  "input_dtype": "float32",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_load_ms": 3.4858270082622766,
+  "session_load_ms": 308.0259650014341,
+  "first_inference_ms": 2481.1656181700528,
+  "rss_before_session_mb": 383.71875,
+  "rss_after_session_mb": 554.484375,
+  "session_rss_delta_mb": 170.765625,
+  "intra_op_threads": 4,
+  "inter_op_threads": 1,
+  "gpu_only_method": "IOBinding",
+  "gpu_only": {
+    "mean_batch_latency_ms": 1.3772796249638002,
+    "median_batch_latency_ms": 1.3752535451203585,
+    "p95_batch_latency_ms": 1.379230513703078,
+    "min_batch_latency_ms": 1.3642190024256706,
+    "max_batch_latency_ms": 1.5090180095285177,
+    "per_image_latency_ms": 0.34431990624095005,
+    "throughput_images_per_second": 2904.275883777148
+  },
+  "end_to_end": {
+    "mean_batch_latency_ms": 1.685313128400594,
+    "median_batch_latency_ms": 1.7272678669542074,
+    "p95_batch_latency_ms": 1.7663189908489585,
+    "min_batch_latency_ms": 1.5731980092823505,
+    "max_batch_latency_ms": 1.8870579078793526,
+    "per_image_latency_ms": 0.4213282821001485,
+    "throughput_images_per_second": 2373.4461760207755
+  },
+  "final_rss_mb": 842.9609375,
+  "peak_rss_mb": 842.9609375
+}
