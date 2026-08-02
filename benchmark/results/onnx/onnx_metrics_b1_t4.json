@@ -1,10 +1,16 @@
 {
+  "recorded_at_utc": "2026-08-02T15:55:23.560239+00:00",
+  "command": "onnx_benchmark.py --threads 4 --batch 1 --warmup 10 --iterations 300",
   "runtime": "onnxruntime",
   "provider": "CPUExecutionProvider",
+  "available_providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "session_providers": [
+    "CPUExecutionProvider"
+  ],
   "model": "resnet18",
-  "model_path": "/home/steelho/study/hetero-systems-study/benchmark/data/onnx_models/resnet18_b1.onnx",
-  "input_path": "/home/steelho/study/hetero-systems-study/benchmark/data/inputs/input_b1.npy",
-  "output_path": "/home/steelho/study/hetero-systems-study/benchmark/results/onnx/onnx_output_b1.npy",
   "batch_size": 1,
   "input_shape": [
     1,
@@ -22,19 +28,43 @@
   "execution_mode": "ORT_SEQUENTIAL",
   "warmup_count": 10,
   "measurement_count": 300,
-  "input_load_ms": 0.4951209994032979,
-  "session_load_ms": 91.9928269868251,
-  "rss_before_session_mb": 42.96484375,
-  "rss_after_session_mb": 141.61328125,
-  "session_rss_delta_mb": 98.6484375,
-  "first_inference_ms": 15.872794989263639,
-  "mean_batch_latency_ms": 8.232788339664694,
-  "median_batch_latency_ms": 8.213510998757556,
-  "p95_batch_latency_ms": 8.399106156139169,
-  "min_batch_latency_ms": 8.131839014822617,
-  "max_batch_latency_ms": 8.563821000279859,
-  "per_image_latency_ms": 8.232788339664694,
-  "throughput_images_per_second": 121.4655301147616,
-  "final_rss_mb": 147.515625,
-  "peak_rss_mb": 146.8984375
+  "input_name": "input",
+  "model_input_shape": [
+    1,
+    3,
+    224,
+    224
+  ],
+  "model_input_type": "tensor(float)",
+  "output_name": "output",
+  "model_output_shape": [
+    1,
+    1000
+  ],
+  "model_output_type": "tensor(float)",
+  "input_path": "benchmark/data/inputs/input_b1.npy",
+  "model_path": "benchmark/data/onnx_models/resnet18_b1.onnx",
+  "output_path": "benchmark/results/onnx/onnx_output_b1_t4.npy",
+  "raw_latency_path": "benchmark/results/raw/onnx_cpu_b1_t4_latencies.json",
+  "environment_path": "benchmark/results/environment/cpu_environment.json",
+  "input_load_ms": 0.35219197161495686,
+  "session_load_ms": 85.00831201672554,
+  "rss_before_session_mb": 43.69921875,
+  "rss_after_session_mb": 131.44921875,
+  "session_rss_delta_mb": 87.75,
+  "first_inference_ms": 9.268420981243253,
+  "mean_batch_latency_ms": 10.664781325419122,
+  "median_batch_latency_ms": 10.923811001703143,
+  "p95_batch_latency_ms": 11.004485079320148,
+  "p99_batch_latency_ms": 11.273428787244484,
+  "min_batch_latency_ms": 9.076028014533222,
+  "max_batch_latency_ms": 15.241030952893198,
+  "std_dev_batch_latency_ms": 0.6562528278660885,
+  "ci95_lower_batch_latency_ms": 10.590519327041434,
+  "ci95_upper_batch_latency_ms": 10.73904332379681,
+  "ci95_half_width_batch_latency_ms": 0.0742619983776881,
+  "per_image_latency_ms": 10.664781325419122,
+  "throughput_images_per_second": 93.76657331140358,
+  "final_rss_mb": 137.33203125,
+  "peak_rss_mb": 155.984375
 }

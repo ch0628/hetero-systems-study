@@ -1,0 +1,23 @@
+{
+  "recorded_at_utc": "2026-08-02T15:58:15.338250+00:00",
+  "hostname": "diaho",
+  "os": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+  "kernel": "6.8.0-124-generic",
+  "architecture": "x86_64",
+  "cpu_model": "x86_64",
+  "physical_cpu_cores": 4,
+  "logical_cpu_cores": 8,
+  "ram_gb": 15.348,
+  "python_version": "3.10.12",
+  "python_executable": "/home/steelho/study/hetero-systems-study/.venv/bin/python3",
+  "virtual_environment": "/home/steelho/study/hetero-systems-study/.venv",
+  "package_versions": {
+    "numpy": "2.2.6",
+    "psutil": "7.2.2",
+    "torch": "2.13.0",
+    "torchvision": "0.28.0",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.23.2"
+  },
+  "git_commit": "16765a13b633cf278ae95efc7bcaf23079a7a128"
+}

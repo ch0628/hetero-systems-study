@@ -2,131 +2,173 @@
 
 ## 데이터 범위
 
-- PyTorch 결과 3개: `benchmark/results/pytorch/*.json`
-- ONNX Runtime 결과 3개: `benchmark/results/onnx/*.json`
-- Validation 결과 3개: `benchmark/results/validation/*.json`
-- 분석 Batch: 1, 4, 16. 원본 JSON은 읽기만 했다.
+- 분석 Batch: 1, 4, 16
+- 분석 Intra-op thread: 1, 2, 4
+- 성능 결과: 18개
+- Validation 결과: 9개
+- ONNX Export 결과: 3개
 
-## 실험 환경
+## 재현 환경
 
 | 항목 | 기록값 |
 | --- | --- |
-| Model | resnet18 |
-| Runtime | PyTorch CPU, ONNX Runtime CPU (CPUExecutionProvider) |
-| Intra-op threads | 4 |
-| Inter-op threads | 1 |
-| Warm-up | 10 |
-| 측정 반복 | 300 |
-| Seed | missing |
-| Input shape | B1: [1,3,224,224], B4: [4,3,224,224], B16: [16,3,224,224] |
-| Dtype | float32 |
-| CPU 모델 / OS / Runtime 버전 | missing |
+| Hostname | diaho |
+| OS | Linux-6.8.0-124-generic-x86_64-with-glibc2.35 |
+| Kernel | 6.8.0-124-generic |
+| Architecture | x86_64 |
+| CPU | x86_64 |
+| Physical / Logical cores | 4 / 8 |
+| RAM (GB) | 15.348 |
+| Python | 3.10.12 |
+| PyTorch | 2.13.0 |
+| Torchvision | 0.28.0 |
+| ONNX | 1.22.0 |
+| ONNX Runtime | 1.23.2 |
+| Virtual environment | /home/steelho/study/hetero-systems-study/.venv |
+| Git commit | 16765a13b633cf278ae95efc7bcaf23079a7a128 |
 
-환경값은 JSON에 기록된 범위만 사용했다. CPU 모델, OS, PyTorch/ONNX Runtime 버전은 기록되지 않아 추정하지 않았다.
+## 전체 측정 결과
 
-## 전체 측정 결과 표
+Latency 단위는 ms, Throughput 단위는 images/s다. ONNX speedup은 동일 Batch·Thread 조건에서 PyTorch mean / ONNX mean이다.
 
-Latency 단위 ms, Throughput 단위 samples/s다. Speedup은 같은 Batch의 `PyTorch mean / ONNX mean`이며 ONNX 행에 표시한다.
+| Runtime | Threads | Batch | Mean | Median | P95 | P99 | Std | 95% CI | Per-image | Throughput | ONNX speedup | Raw count |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ONNX Runtime CPU | 1 | 1 | 29.085 | 28.954 | 29.495 | 31.167 | 0.389 | [29.041, 29.129] | 29.085 | 34.382 | 1.465 | 300 |
+| PyTorch CPU | 1 | 1 | 42.617 | 42.408 | 43.753 | 47.438 | 0.856 | [42.520, 42.714] | 42.617 | 23.465 | missing | 300 |
+| ONNX Runtime CPU | 1 | 4 | 114.304 | 114.004 | 115.085 | 119.595 | 1.499 | [114.134, 114.473] | 28.576 | 34.994 | 1.366 | 300 |
+| PyTorch CPU | 1 | 4 | 156.180 | 155.598 | 159.206 | 168.026 | 2.560 | [155.891, 156.470] | 39.045 | 25.611 | missing | 300 |
+| ONNX Runtime CPU | 1 | 16 | 468.967 | 471.752 | 476.205 | 481.002 | 6.747 | [468.204, 469.731] | 29.310 | 34.118 | 1.374 | 300 |
+| PyTorch CPU | 1 | 16 | 644.195 | 643.512 | 657.650 | 667.794 | 8.770 | [643.202, 645.187] | 40.262 | 24.837 | missing | 300 |
+| ONNX Runtime CPU | 2 | 1 | 17.071 | 17.026 | 17.161 | 17.413 | 0.759 | [16.985, 17.157] | 17.071 | 58.578 | 1.446 | 300 |
+| PyTorch CPU | 2 | 1 | 24.691 | 24.612 | 25.096 | 27.262 | 0.473 | [24.638, 24.745] | 24.691 | 40.500 | missing | 300 |
+| ONNX Runtime CPU | 2 | 4 | 65.275 | 65.746 | 66.760 | 70.856 | 1.513 | [65.104, 65.446] | 16.319 | 61.279 | 1.411 | 300 |
+| PyTorch CPU | 2 | 4 | 92.093 | 90.245 | 95.536 | 103.789 | 3.509 | [91.696, 92.490] | 23.023 | 43.435 | missing | 300 |
+| ONNX Runtime CPU | 2 | 16 | 263.053 | 261.999 | 281.220 | 282.838 | 7.542 | [262.199, 263.906] | 16.441 | 60.824 | 1.452 | 300 |
+| PyTorch CPU | 2 | 16 | 382.025 | 378.895 | 400.893 | 409.385 | 11.022 | [380.778, 383.272] | 23.877 | 41.882 | missing | 300 |
+| ONNX Runtime CPU | 4 | 1 | 10.665 | 10.924 | 11.004 | 11.273 | 0.656 | [10.591, 10.739] | 10.665 | 93.767 | 1.784 | 300 |
+| PyTorch CPU | 4 | 1 | 19.029 | 19.227 | 20.305 | 22.414 | 1.398 | [18.870, 19.187] | 19.029 | 52.553 | missing | 300 |
+| ONNX Runtime CPU | 4 | 4 | 43.054 | 42.882 | 44.459 | 45.850 | 0.938 | [42.948, 43.161] | 10.764 | 92.906 | 1.498 | 300 |
+| PyTorch CPU | 4 | 4 | 64.474 | 64.432 | 66.951 | 76.414 | 3.175 | [64.115, 64.834] | 16.119 | 62.040 | missing | 300 |
+| ONNX Runtime CPU | 4 | 16 | 172.169 | 171.008 | 177.932 | 183.848 | 2.921 | [171.838, 172.499] | 10.761 | 92.932 | 1.484 | 300 |
+| PyTorch CPU | 4 | 16 | 255.555 | 254.073 | 264.820 | 279.982 | 5.542 | [254.928, 256.182] | 15.972 | 62.609 | missing | 300 |
 
-| Runtime | Batch | Mean | Median | P95 | Min | Max | Per-image | Throughput | ONNX speedup | Init | First |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ONNX Runtime CPU | 1 | 8.233 | 8.214 | 8.399 | 8.132 | 8.564 | 8.233 | 121.466 | 2.013 | 91.993 | 15.873 |
-| PyTorch CPU | 1 | 16.574 | 16.439 | 17.205 | 16.208 | 20.352 | 16.574 | 60.336 | missing | 172.065 | 22.852 |
-| ONNX Runtime CPU | 4 | 33.329 | 33.331 | 34.335 | 31.934 | 43.882 | 8.332 | 120.017 | 1.690 | 103.994 | 33.980 |
-| PyTorch CPU | 4 | 56.319 | 54.636 | 65.428 | 50.948 | 84.045 | 14.080 | 71.024 | missing | 112.817 | 69.398 |
-| ONNX Runtime CPU | 16 | 160.481 | 168.963 | 175.156 | 134.133 | 185.783 | 10.030 | 99.700 | 1.608 | 91.499 | 131.205 |
-| PyTorch CPU | 16 | 258.133 | 257.750 | 272.119 | 219.905 | 284.733 | 16.133 | 61.984 | missing | 118.254 | 290.953 |
+## Runtime 비교
 
-## PyTorch CPU와 ONNX Runtime CPU 비교
-
-| Batch | PyTorch mean (ms) | ONNX mean (ms) | ONNX speedup | PyTorch samples/s | ONNX samples/s |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 16.574 | 8.233 | 2.013 | 60.336 | 121.466 |
-| 4 | 56.319 | 33.329 | 1.690 | 71.024 | 120.017 |
-| 16 | 258.133 | 160.481 | 1.608 | 61.984 | 99.700 |
-
-ONNX Runtime CPU가 측정된 모든 Batch에서 더 낮은 mean latency를 보였다. Speedup은 B1 2.013x, B4 1.690x, B16 1.608x다. Batch 증가와 함께 이 데이터의 ONNX 이점은 감소했다. 결과 파일만으로 커널 구현, 그래프 최적화, 메모리 접근 등 원인을 확정할 수 없다.
-
-## Batch 1, 4, 16 확장성
-
-Mean 배수, Per-image 변화, Throughput 변화는 각 Runtime의 B1 대비다.
-
-| Runtime | Batch | Mean 배수 | Per-image 변화 | Throughput 변화 | ONNX speedup |
-| --- | --- | --- | --- | --- | --- |
-| PyTorch CPU | 1 | 1.000x | +0.0% | +0.0% | missing |
-| ONNX Runtime CPU | 1 | 1.000x | +0.0% | +0.0% | 2.013 |
-| PyTorch CPU | 4 | 3.398x | -15.0% | +17.7% | missing |
-| ONNX Runtime CPU | 4 | 4.048x | +1.2% | -1.2% | 1.690 |
-| PyTorch CPU | 16 | 15.575x | -2.7% | +2.7% | missing |
-| ONNX Runtime CPU | 16 | 19.493x | +21.8% | -17.9% | 1.608 |
-
-PyTorch는 B4에서 per-image latency가 B1 대비 -15.0%, throughput은 +17.7%였다. B16에서는 각각 -2.7%, +2.7%였다.
-
-ONNX Runtime은 B4에서 per-image latency가 B1 대비 +1.2%, throughput은 -1.2%였다. B16에서는 각각 +21.8%, -17.9%였다.
-
-## Latency와 Throughput 분석
-
-PyTorch 최고 throughput은 B4의 71.024 samples/s다. ONNX Runtime 최고 throughput은 B1의 121.466 samples/s이며 B4는 비슷하지만 B16에서 99.700 samples/s로 낮아졌다. 큰 Batch가 자동으로 더 좋은 per-image latency나 throughput을 만들지 않았다.
-
-Mean, median, P95, min, max는 JSON의 집계값을 그대로 사용했다. 원시 iteration latency가 없어 분산 형태를 복원할 수 없다.
-
-## 초기화와 First Inference 분석
-
-| Runtime | Batch | 초기화 종류 | 초기화 (ms) | Input load (ms) | NumPy→Tensor (ms) | First (ms) | First/Mean |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ONNX Runtime CPU | 1 | session_loading | 91.993 | 0.495 | missing | 15.873 | 1.928x |
-| PyTorch CPU | 1 | model_initialization | 172.065 | 0.289 | 0.022 | 22.852 | 1.379x |
-| ONNX Runtime CPU | 4 | session_loading | 103.994 | 1.606 | missing | 33.980 | 1.020x |
-| PyTorch CPU | 4 | model_initialization | 112.817 | 0.495 | 0.025 | 69.398 | 1.232x |
-| ONNX Runtime CPU | 16 | session_loading | 91.499 | 2.290 | missing | 131.205 | 0.818x |
-| PyTorch CPU | 16 | model_initialization | 118.254 | 2.567 | 0.030 | 290.953 | 1.127x |
-
-PyTorch는 model initialization, ONNX Runtime은 session loading을 별도 항목으로 유지했다. ONNX JSON에 NumPy→Tensor 변환값은 없어 `missing`이다. First inference는 대체로 steady-state mean보다 높지만 ONNX B16은 낮다. 따라서 First inference를 항상 초기 실행 페널티로 해석할 수 없다.
-
-## Memory와 RSS 분석
-
-| Runtime | Batch | 생성 전 RSS | 생성 후 RSS | 생성 증가분 | Final RSS | Peak RSS |
+| Threads | Batch | PyTorch mean | ONNX mean | ONNX speedup | PyTorch images/s | ONNX images/s |
 | --- | --- | --- | --- | --- | --- | --- |
-| ONNX Runtime CPU | 1 | 42.965 | 141.613 | 98.648 | 147.516 | 146.898 |
-| PyTorch CPU | 1 | 638.367 | 699.691 | 61.324 | 722.352 | 730.781 |
-| ONNX Runtime CPU | 4 | 44.668 | 143.316 | 98.648 | 166.824 | 166.594 |
-| PyTorch CPU | 4 | 638.504 | 699.758 | 61.254 | 744.043 | 770.578 |
-| ONNX Runtime CPU | 16 | 51.551 | 139.664 | 88.113 | 215.234 | 214.852 |
-| PyTorch CPU | 16 | 638.504 | 699.789 | 61.285 | 766.051 | 863.910 |
+| 1 | 1 | 42.617 | 29.085 | 1.465 | 23.465 | 34.382 |
+| 1 | 4 | 156.180 | 114.304 | 1.366 | 25.611 | 34.994 |
+| 1 | 16 | 644.195 | 468.967 | 1.374 | 24.837 | 34.118 |
+| 2 | 1 | 24.691 | 17.071 | 1.446 | 40.500 | 58.578 |
+| 2 | 4 | 92.093 | 65.275 | 1.411 | 43.435 | 61.279 |
+| 2 | 16 | 382.025 | 263.053 | 1.452 | 41.882 | 60.824 |
+| 4 | 1 | 19.029 | 10.665 | 1.784 | 52.553 | 93.767 |
+| 4 | 4 | 64.474 | 43.054 | 1.498 | 62.040 | 92.906 |
+| 4 | 16 | 255.555 | 172.169 | 1.484 | 62.609 | 92.932 |
 
-생성 전/후 차이와 JSON의 model/session RSS delta는 Model 또는 Session 생성 증가분이다. Final/Peak RSS는 전체 프로세스 RSS다. PyTorch와 ONNX의 생성 전 RSS가 크게 다르므로 전체 RSS 차이를 Model 또는 Session 자체 메모리 차이로 간주하면 안 된다. 별도 프로세스의 런타임 기본 메모리와 측정 시점이 포함될 수 있다.
+## Thread 확장성
 
-## Validation 분석
+Thread latency speedup은 각 Runtime·Batch에서 가장 작은 Thread 수를 기준으로 계산한다.
 
-| Batch | Max difference | Mean difference | Allclose | Top-1 일치 |
-| --- | --- | --- | --- | --- |
-| 1 | 0.000004530 | 0.000000714 | 통과 | 통과 |
-| 4 | 0.000004768 | 0.000000666 | 통과 | 통과 |
-| 16 | 0.000004530 | 0.000000704 | 통과 | 통과 |
+| Runtime | Batch | Threads | Mean | Latency speedup | Throughput 변화 | P99 |
+| --- | --- | --- | --- | --- | --- | --- |
+| PyTorch CPU | 1 | 1 | 42.617 | 1.000 | +0.0% | 47.438 |
+| PyTorch CPU | 1 | 2 | 24.691 | 1.726 | +72.6% | 27.262 |
+| PyTorch CPU | 1 | 4 | 19.029 | 2.240 | +124.0% | 22.414 |
+| PyTorch CPU | 4 | 1 | 156.180 | 1.000 | +0.0% | 168.026 |
+| PyTorch CPU | 4 | 2 | 92.093 | 1.696 | +69.6% | 103.789 |
+| PyTorch CPU | 4 | 4 | 64.474 | 2.422 | +142.2% | 76.414 |
+| PyTorch CPU | 16 | 1 | 644.195 | 1.000 | +0.0% | 667.794 |
+| PyTorch CPU | 16 | 2 | 382.025 | 1.686 | +68.6% | 409.385 |
+| PyTorch CPU | 16 | 4 | 255.555 | 2.521 | +152.1% | 279.982 |
+| ONNX Runtime CPU | 1 | 1 | 29.085 | 1.000 | +0.0% | 31.167 |
+| ONNX Runtime CPU | 1 | 2 | 17.071 | 1.704 | +70.4% | 17.413 |
+| ONNX Runtime CPU | 1 | 4 | 10.665 | 2.727 | +172.7% | 11.273 |
+| ONNX Runtime CPU | 4 | 1 | 114.304 | 1.000 | +0.0% | 119.595 |
+| ONNX Runtime CPU | 4 | 2 | 65.275 | 1.751 | +75.1% | 70.856 |
+| ONNX Runtime CPU | 4 | 4 | 43.054 | 2.655 | +165.5% | 45.850 |
+| ONNX Runtime CPU | 16 | 1 | 468.967 | 1.000 | +0.0% | 481.002 |
+| ONNX Runtime CPU | 16 | 2 | 263.053 | 1.783 | +78.3% | 282.838 |
+| ONNX Runtime CPU | 16 | 4 | 172.169 | 2.724 | +172.4% | 183.848 |
 
-Batch별 Validation 전체 통과 여부: **전체 통과**. Allclose와 Top-1 일치를 각각 확인했다.
+## Batch 확장성
 
-## 이상치와 가능한 원인
+Per-image와 Throughput 변화는 동일 Runtime·Thread에서 가장 작은 Batch를 기준으로 계산한다.
 
-- B4 PyTorch max latency 84.045 ms는 median 54.636 ms보다 +53.8% 높다.
-- B4 ONNX max latency 43.882 ms는 median 33.331 ms보다 +31.7% 높다.
-- ONNX B16 mean 160.481 ms가 median 168.963 ms보다 낮고, first inference 131.205 ms도 mean보다 낮다.
-- 모든 ONNX 결과에서 Final RSS가 기록된 Peak RSS보다 소폭 높다. Peak 측정 구간 또는 측정 시점 정의를 확인할 필요가 있다.
-- 가능한 요인은 OS 스케줄링, CPU 주파수 변화, 캐시 상태, 백그라운드 부하, 메모리 할당 등이다. 원시 latency와 환경 로그가 없어 어느 원인도 확정할 수 없다.
+| Runtime | Threads | Batch | Mean | Per-image 변화 | Throughput 변화 |
+| --- | --- | --- | --- | --- | --- |
+| PyTorch CPU | 1 | 1 | 42.617 | +0.0% | +0.0% |
+| PyTorch CPU | 1 | 4 | 156.180 | -8.4% | +9.1% |
+| PyTorch CPU | 1 | 16 | 644.195 | -5.5% | +5.8% |
+| PyTorch CPU | 2 | 1 | 24.691 | +0.0% | +0.0% |
+| PyTorch CPU | 2 | 4 | 92.093 | -6.8% | +7.2% |
+| PyTorch CPU | 2 | 16 | 382.025 | -3.3% | +3.4% |
+| PyTorch CPU | 4 | 1 | 19.029 | +0.0% | +0.0% |
+| PyTorch CPU | 4 | 4 | 64.474 | -15.3% | +18.1% |
+| PyTorch CPU | 4 | 16 | 255.555 | -16.1% | +19.1% |
+| ONNX Runtime CPU | 1 | 1 | 29.085 | +0.0% | +0.0% |
+| ONNX Runtime CPU | 1 | 4 | 114.304 | -1.8% | +1.8% |
+| ONNX Runtime CPU | 1 | 16 | 468.967 | +0.8% | -0.8% |
+| ONNX Runtime CPU | 2 | 1 | 17.071 | +0.0% | +0.0% |
+| ONNX Runtime CPU | 2 | 4 | 65.275 | -4.4% | +4.6% |
+| ONNX Runtime CPU | 2 | 16 | 263.053 | -3.7% | +3.8% |
+| ONNX Runtime CPU | 4 | 1 | 10.665 | +0.0% | +0.0% |
+| ONNX Runtime CPU | 4 | 4 | 43.054 | +0.9% | -0.9% |
+| ONNX Runtime CPU | 4 | 16 | 172.169 | +0.9% | -0.9% |
 
-## 실험 한계
+## ONNX Export 기록
 
-- 원시 iteration latency가 없다. 표준편차, P99, Confidence Interval을 계산하지 않았다.
-- CPU 모델, OS, Runtime/라이브러리 버전, 전원 정책, CPU affinity, 백그라운드 부하가 기록되지 않았다.
-- Seed가 기록되지 않았다.
-- 각 Runtime/Batch 조합이 집계 JSON 1개뿐이다. 실행 간 변동성과 재현성을 평가할 수 없다.
-- PyTorch와 ONNX의 초기 프로세스 RSS가 달라 전체 RSS 절대값의 직접 비교가 제한된다.
-- 결과는 ResNet-18, float32, thread 4, 입력 크기 224×224 범위에 한정된다.
+| Batch | Opset | Export ms | Size MB | Checker | Nodes | Operator counts |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 17 | 2215.761 | 0.090 | 통과 | 49 | {"Add":8,"Conv":20,"Gemm":1,"MaxPool":1,"ReduceMean":1,"Relu":17,"Reshape":1} |
+| 16 | 17 | 2065.214 | 0.090 | 통과 | 49 | {"Add":8,"Conv":20,"Gemm":1,"MaxPool":1,"ReduceMean":1,"Relu":17,"Reshape":1} |
+| 4 | 17 | 2054.870 | 0.090 | 통과 | 49 | {"Add":8,"Conv":20,"Gemm":1,"MaxPool":1,"ReduceMean":1,"Relu":17,"Reshape":1} |
 
-## 다음 실험 제안
+## 출력 검증
 
-1. 원시 iteration latency와 실행별 타임스탬프를 저장하고 독립 실행을 여러 번 반복한다.
-2. CPU 모델, OS, PyTorch/ONNX Runtime 버전, 전원 정책, affinity, 동시 부하를 기록한다.
-3. Thread 수를 1/2/4/8로 바꾸고 Batch 1/4/16의 latency, throughput, speedup을 다시 측정한다.
-4. RSS 샘플링 구간을 명시하고 초기 프로세스, 생성 직후, warm-up 후, 측정 중 peak를 같은 정의로 기록한다.
-5. 입력을 여러 seed로 생성하고 각 Batch에서 Allclose와 Top-1 validation을 반복한다.
+| Batch | Threads | Max diff | Mean diff | Allclose | Top-1 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1 | 0.000004530 | 0.000000714 | 통과 | 통과 |
+| 4 | 1 | 0.000004768 | 0.000000666 | 통과 | 통과 |
+| 16 | 1 | 0.000004530 | 0.000000704 | 통과 | 통과 |
+| 1 | 2 | 0.000004530 | 0.000000714 | 통과 | 통과 |
+| 4 | 2 | 0.000004768 | 0.000000666 | 통과 | 통과 |
+| 16 | 2 | 0.000004530 | 0.000000704 | 통과 | 통과 |
+| 1 | 4 | 0.000004530 | 0.000000714 | 통과 | 통과 |
+| 4 | 4 | 0.000004768 | 0.000000666 | 통과 | 통과 |
+| 16 | 4 | 0.000004530 | 0.000000704 | 통과 | 통과 |
+
+전체 Batch·Thread 검증 결과: **전체 통과**
+
+## 조건별 최저 Mean Runtime
+
+- T1, B1: ONNX Runtime CPU mean 29.085 ms
+- T1, B4: ONNX Runtime CPU mean 114.304 ms
+- T1, B16: ONNX Runtime CPU mean 468.967 ms
+- T2, B1: ONNX Runtime CPU mean 17.071 ms
+- T2, B4: ONNX Runtime CPU mean 65.275 ms
+- T2, B16: ONNX Runtime CPU mean 263.053 ms
+- T4, B1: ONNX Runtime CPU mean 10.665 ms
+- T4, B4: ONNX Runtime CPU mean 43.054 ms
+- T4, B16: ONNX Runtime CPU mean 172.169 ms
+
+## 데이터 품질 점검
+
+- 원시 Latency 개수 불일치 또는 누락: 0개
+- P99·표준편차·95% CI 누락: 0개
+- 기대 Validation 조합: 9개, 실제: 9개
+
+## 해석 시 주의사항
+
+- Thread 수가 많다고 항상 Mean, P99, Throughput이 개선되는 것은 아니다.
+- Runtime 우위는 Batch와 Thread 조건을 고정한 뒤 비교해야 한다.
+- 95% CI는 한 실행 안의 iteration 표본에 대한 구간이며, 독립 프로세스 반복 간 재현성을 대신하지 않는다.
+- RSS는 전체 프로세스와 Model/Session 생성 증가분을 구분해서 해석해야 한다.
+- ONNX Checker 통과는 실행 가능성 검증이지 성능 향상 보장이 아니다.
+
+## 다음 단계
+
+1. 같은 Batch·Thread 조합을 독립 프로세스로 여러 번 반복해 실행 간 분산을 측정한다.
+2. CPU affinity, 전원 정책, 백그라운드 부하를 기록한다.
+3. Thread별 CPU utilization을 함께 수집한다.
+4. Fixed Shape와 Dynamic Shape 비교로 확장한다.

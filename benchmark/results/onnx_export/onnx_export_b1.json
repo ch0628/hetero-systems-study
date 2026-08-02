@@ -1,0 +1,36 @@
+{
+  "model": "resnet18",
+  "weights": "ResNet18_Weights.IMAGENET1K_V1",
+  "seed": 42,
+  "batch_size": 1,
+  "fixed_shape": true,
+  "input_name": "input",
+  "output_name": "output",
+  "input_shape": [
+    1,
+    3,
+    224,
+    224
+  ],
+  "input_dtype": "float32",
+  "opset_version": 17,
+  "export_time_ms": 2215.761373983696,
+  "model_size_bytes": 94749,
+  "model_size_mb": 0.09035968780517578,
+  "checker_passed": true,
+  "checker_error": null,
+  "graph_name": "main_graph",
+  "node_count": 49,
+  "initializer_count": 44,
+  "operator_counts": {
+    "Add": 8,
+    "Conv": 20,
+    "Gemm": 1,
+    "MaxPool": 1,
+    "ReduceMean": 1,
+    "Relu": 17,
+    "Reshape": 1
+  },
+  "input_path": "benchmark/data/inputs/input_b1.npy",
+  "model_path": "benchmark/data/onnx_models/resnet18_b1.onnx"
+}

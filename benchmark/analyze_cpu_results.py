@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize CPU benchmark JSON files without modifying the source data."""
+"""Analyze CPU benchmark results across Batch and thread-count conditions."""
 
 from __future__ import annotations
 
@@ -18,12 +18,14 @@ ROOT_DIR = BENCHMARK_DIR.parent
 RESULTS_DIR = BENCHMARK_DIR / "results"
 CSV_PATH = RESULTS_DIR / "cpu_summary.csv"
 REPORT_PATH = ROOT_DIR / "docs" / "cpu_benchmark_report.md"
+ENVIRONMENT_PATH = RESULTS_DIR / "environment" / "cpu_environment.json"
 
-RESULT_GLOBS = (
-    RESULTS_DIR / "pytorch" / "*.json",
-    RESULTS_DIR / "onnx" / "*.json",
+RESULT_PATTERNS = (
+    RESULTS_DIR / "pytorch" / "pytorch_metrics_b*_t*.json",
+    RESULTS_DIR / "onnx" / "onnx_metrics_b*_t*.json",
 )
-VALIDATION_GLOB = RESULTS_DIR / "validation" / "*.json"
+VALIDATION_PATTERN = RESULTS_DIR / "validation" / "validation_b*_t*.json"
+EXPORT_PATTERN = RESULTS_DIR / "onnx_export" / "onnx_export_b*.json"
 
 CSV_FIELDS = [
     "runtime",
@@ -38,6 +40,8 @@ CSV_FIELDS = [
     "model",
     "provider_or_device",
     "source_file",
+    "raw_latency_path",
+    "raw_latency_count",
     "initialization_type",
     "initialization_ms",
     "input_loading_ms",
@@ -46,11 +50,17 @@ CSV_FIELDS = [
     "mean_latency_ms",
     "median_latency_ms",
     "p95_latency_ms",
+    "p99_latency_ms",
     "min_latency_ms",
     "max_latency_ms",
+    "std_dev_latency_ms",
+    "ci95_lower_latency_ms",
+    "ci95_upper_latency_ms",
+    "ci95_half_width_latency_ms",
     "per_image_latency_ms",
     "throughput_samples_per_s",
     "onnx_speedup",
+    "thread_latency_speedup",
     "rss_before_initialization_mb",
     "rss_after_initialization_mb",
     "initialization_rss_increase_mb",
@@ -70,6 +80,14 @@ def first(data: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def load_json(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: top-level JSON must be an object")
+    return data
+
+
 def normalize_runtime(value: Any) -> str | None:
     if value is None:
         return None
@@ -81,55 +99,77 @@ def normalize_runtime(value: Any) -> str | None:
     return None
 
 
-def identity_from_filename(path: Path) -> tuple[str | None, int | None]:
-    runtime = normalize_runtime(path.stem)
-    match = re.search(r"(?:^|_)b(?:atch)?(\d+)(?:_|$)", path.stem, re.IGNORECASE)
-    return runtime, int(match.group(1)) if match else None
+def parse_batch_thread(path: Path) -> tuple[int | None, int | None]:
+    batch_match = re.search(r"(?:^|_)b(?:atch)?(\d+)(?:_|$)", path.stem, re.IGNORECASE)
+    thread_match = re.search(r"(?:^|_)t(?:hreads?)?(\d+)(?:_|$)", path.stem, re.IGNORECASE)
+    batch = int(batch_match.group(1)) if batch_match else None
+    threads = int(thread_match.group(1)) if thread_match else None
+    return batch, threads
 
 
-def extract_identity(path: Path, data: dict[str, Any]) -> tuple[str, int]:
-    file_runtime, file_batch = identity_from_filename(path)
-    json_runtime = normalize_runtime(first(data, "runtime", "framework"))
-    json_batch = first(data, "batch_size", "batch")
+def relative_source(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT_DIR.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
-    if file_runtime and json_runtime and file_runtime != json_runtime:
-        raise ValueError(f"{path}: filename/JSON runtime mismatch")
-    if file_batch is not None and json_batch is not None and file_batch != int(json_batch):
-        raise ValueError(f"{path}: filename/JSON batch mismatch")
 
-    runtime = json_runtime or file_runtime
-    batch = int(json_batch) if json_batch is not None else file_batch
-    if runtime is None or batch is None:
-        raise ValueError(f"{path}: runtime or batch size is missing")
-    return runtime, batch
+def resolve_repo_path(value: Any) -> Path | None:
+    if not isinstance(value, str) or not value:
+        return None
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    return ROOT_DIR / candidate
+
+
+def raw_latency_count(value: Any) -> int | None:
+    path = resolve_repo_path(value)
+    if path is None or not path.exists():
+        return None
+    try:
+        data = load_json(path)
+        latencies = data.get("latencies_ms")
+        return len(latencies) if isinstance(latencies, list) else None
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
 
 
 def derived_throughput(batch_size: int, mean_latency_ms: Any) -> float | None:
     if not isinstance(mean_latency_ms, (int, float)) or mean_latency_ms <= 0:
         return None
-    return batch_size / (mean_latency_ms / 1000)
+    return batch_size * 1000.0 / mean_latency_ms
 
 
-def derived_speedup(pytorch_mean_ms: Any, onnx_mean_ms: Any) -> float | None:
-    if not isinstance(pytorch_mean_ms, (int, float)):
+def derived_speedup(baseline: Any, current: Any) -> float | None:
+    if not isinstance(baseline, (int, float)):
         return None
-    if not isinstance(onnx_mean_ms, (int, float)) or onnx_mean_ms <= 0:
+    if not isinstance(current, (int, float)) or current <= 0:
         return None
-    return pytorch_mean_ms / onnx_mean_ms
+    return baseline / current
 
 
-def relative_source(path: Path) -> str:
-    try:
-        return path.resolve().relative_to(ROOT_DIR).as_posix()
-    except ValueError:
-        return path.as_posix()
+def extract_identity(path: Path, data: dict[str, Any]) -> tuple[str, int, int]:
+    file_batch, file_threads = parse_batch_thread(path)
+    runtime = normalize_runtime(first(data, "runtime", "framework")) or normalize_runtime(path.stem)
+    json_batch = first(data, "batch_size", "batch")
+    json_threads = first(data, "intra_op_threads", "thread_count", "num_threads")
+
+    batch = int(json_batch) if json_batch is not None else file_batch
+    threads = int(json_threads) if json_threads is not None else file_threads
+
+    if runtime is None or batch is None or threads is None:
+        raise ValueError(f"{path}: runtime, batch, or thread count is missing")
+    if file_batch is not None and file_batch != batch:
+        raise ValueError(f"{path}: filename/JSON batch mismatch")
+    if file_threads is not None and file_threads != threads:
+        raise ValueError(f"{path}: filename/JSON thread mismatch")
+    return runtime, batch, threads
 
 
 def parse_result(path: Path, data: dict[str, Any]) -> dict[str, Any]:
-    runtime, batch_size = extract_identity(path, data)
+    runtime, batch_size, threads = extract_identity(path, data)
     is_pytorch = runtime == "pytorch_cpu"
-    initialization_type = "model_initialization" if is_pytorch else "session_loading"
-
     before = first(
         data,
         "rss_before_model_mb" if is_pytorch else "rss_before_session_mb",
@@ -158,10 +198,11 @@ def parse_result(path: Path, data: dict[str, Any]) -> dict[str, Any]:
     if throughput is None:
         throughput = derived_throughput(batch_size, mean_latency)
 
-    row = {
+    raw_path = first(data, "raw_latency_path")
+    return {
         "runtime": runtime,
         "batch_size": batch_size,
-        "thread_count": first(data, "intra_op_threads", "thread_count", "num_threads"),
+        "thread_count": threads,
         "inter_op_thread_count": first(data, "inter_op_threads", "inter_op_thread_count"),
         "warmup_count": first(data, "warmup_count", "warm_up_count", "warmups"),
         "measurement_count": first(data, "measurement_count", "repeat_count", "iterations"),
@@ -171,7 +212,9 @@ def parse_result(path: Path, data: dict[str, Any]) -> dict[str, Any]:
         "model": first(data, "model", "model_name"),
         "provider_or_device": first(data, "device") if is_pytorch else first(data, "provider"),
         "source_file": relative_source(path),
-        "initialization_type": initialization_type,
+        "raw_latency_path": raw_path,
+        "raw_latency_count": raw_latency_count(raw_path),
+        "initialization_type": "model_initialization" if is_pytorch else "session_loading",
         "initialization_ms": first(
             data,
             "model_initialization_ms" if is_pytorch else "session_load_ms",
@@ -183,13 +226,21 @@ def parse_result(path: Path, data: dict[str, Any]) -> dict[str, Any]:
         "mean_latency_ms": mean_latency,
         "median_latency_ms": first(data, "median_batch_latency_ms", "median_latency_ms"),
         "p95_latency_ms": first(data, "p95_batch_latency_ms", "p95_latency_ms"),
+        "p99_latency_ms": first(data, "p99_batch_latency_ms", "p99_latency_ms"),
         "min_latency_ms": first(data, "min_batch_latency_ms", "min_latency_ms"),
         "max_latency_ms": first(data, "max_batch_latency_ms", "max_latency_ms"),
-        "per_image_latency_ms": first(
-            data, "per_image_latency_ms", "per_sample_latency_ms"
+        "std_dev_latency_ms": first(data, "std_dev_batch_latency_ms", "std_dev_latency_ms"),
+        "ci95_lower_latency_ms": first(data, "ci95_lower_batch_latency_ms", "ci95_lower_latency_ms"),
+        "ci95_upper_latency_ms": first(data, "ci95_upper_batch_latency_ms", "ci95_upper_latency_ms"),
+        "ci95_half_width_latency_ms": first(
+            data,
+            "ci95_half_width_batch_latency_ms",
+            "ci95_half_width_latency_ms",
         ),
+        "per_image_latency_ms": first(data, "per_image_latency_ms", "per_sample_latency_ms"),
         "throughput_samples_per_s": throughput,
         "onnx_speedup": None,
+        "thread_latency_speedup": None,
         "rss_before_initialization_mb": before,
         "rss_after_initialization_mb": after,
         "initialization_rss_increase_mb": rss_increase,
@@ -200,70 +251,89 @@ def parse_result(path: Path, data: dict[str, Any]) -> dict[str, Any]:
         "validation_allclose": None,
         "validation_top1_match": None,
     }
-    return row
 
 
-def parse_validation(path: Path, data: dict[str, Any]) -> tuple[int, dict[str, Any]]:
-    _, file_batch = identity_from_filename(path)
-    json_batch = first(data, "batch_size", "batch")
-    if file_batch is not None and json_batch is not None and file_batch != int(json_batch):
-        raise ValueError(f"{path}: filename/JSON batch mismatch")
-    batch = int(json_batch) if json_batch is not None else file_batch
-    if batch is None:
-        raise ValueError(f"{path}: validation batch size is missing")
-    return batch, {
-        "validation_max_difference": first(
-            data, "max_absolute_difference", "max_difference"
-        ),
-        "validation_mean_difference": first(
-            data, "mean_absolute_difference", "mean_difference"
-        ),
+def parse_validation(path: Path, data: dict[str, Any]) -> tuple[tuple[int, int], dict[str, Any]]:
+    file_batch, file_threads = parse_batch_thread(path)
+    batch = int(first(data, "batch_size", "batch") or file_batch or 0)
+    threads = int(first(data, "intra_op_threads", "thread_count") or file_threads or 0)
+    if batch <= 0 or threads <= 0:
+        raise ValueError(f"{path}: validation batch or thread count is missing")
+    return (batch, threads), {
+        "validation_max_difference": first(data, "max_absolute_difference", "max_difference"),
+        "validation_mean_difference": first(data, "mean_absolute_difference", "mean_difference"),
         "validation_allclose": first(data, "outputs_all_close", "allclose"),
         "validation_top1_match": first(data, "same_top1", "top1_match"),
     }
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as handle:
-        value = json.load(handle)
-    if not isinstance(value, dict):
-        raise ValueError(f"{path}: top-level JSON value must be an object")
-    return value
-
-
-def collect_rows() -> tuple[list[dict[str, Any]], dict[int, dict[str, Any]]]:
-    result_paths = sorted(path for pattern in RESULT_GLOBS for path in pattern.parent.glob(pattern.name))
-    validation_paths = sorted(VALIDATION_GLOB.parent.glob(VALIDATION_GLOB.name))
+def collect_rows() -> tuple[list[dict[str, Any]], dict[tuple[int, int], dict[str, Any]]]:
+    result_paths = sorted(path for pattern in RESULT_PATTERNS for path in pattern.parent.glob(pattern.name))
     if not result_paths:
-        raise FileNotFoundError("No PyTorch or ONNX result JSON files found")
+        raise FileNotFoundError("No CPU metric JSON files found")
 
     rows = [parse_result(path, load_json(path)) for path in result_paths]
-    validations: dict[int, dict[str, Any]] = {}
-    for path in validation_paths:
-        batch, validation = parse_validation(path, load_json(path))
-        if batch in validations:
-            raise ValueError(f"duplicate validation result for batch {batch}")
-        validations[batch] = validation
+    validations: dict[tuple[int, int], dict[str, Any]] = {}
+    for path in sorted(VALIDATION_PATTERN.parent.glob(VALIDATION_PATTERN.name)):
+        key, validation = parse_validation(path, load_json(path))
+        if key in validations:
+            raise ValueError(f"duplicate validation result for batch/thread {key}")
+        validations[key] = validation
 
-    indexed: dict[tuple[str, int], dict[str, Any]] = {}
+    indexed: dict[tuple[str, int, int], dict[str, Any]] = {}
     for row in rows:
-        key = (row["runtime"], row["batch_size"])
+        key = (row["runtime"], row["batch_size"], row["thread_count"])
         if key in indexed:
-            raise ValueError(f"duplicate result for runtime/batch {key}")
+            raise ValueError(f"duplicate result for runtime/batch/thread {key}")
         indexed[key] = row
-        row.update(validations.get(row["batch_size"], {}))
+        row.update(validations.get((row["batch_size"], row["thread_count"]), {}))
 
-    batches = sorted({row["batch_size"] for row in rows})
-    for batch in batches:
-        pytorch = indexed.get(("pytorch_cpu", batch))
-        onnx = indexed.get(("onnxruntime_cpu", batch))
+    combinations = sorted({(row["batch_size"], row["thread_count"]) for row in rows})
+    for batch, threads in combinations:
+        pytorch = indexed.get(("pytorch_cpu", batch, threads))
+        onnx = indexed.get(("onnxruntime_cpu", batch, threads))
         if pytorch and onnx:
             onnx["onnx_speedup"] = derived_speedup(
                 pytorch["mean_latency_ms"], onnx["mean_latency_ms"]
             )
 
-    rows.sort(key=lambda row: (row["batch_size"], row["runtime"]))
+    for runtime in ("pytorch_cpu", "onnxruntime_cpu"):
+        for batch in sorted({row["batch_size"] for row in rows}):
+            candidates = [row for row in rows if row["runtime"] == runtime and row["batch_size"] == batch]
+            if not candidates:
+                continue
+            baseline = min(candidates, key=lambda row: row["thread_count"])
+            for row in candidates:
+                row["thread_latency_speedup"] = derived_speedup(
+                    baseline["mean_latency_ms"], row["mean_latency_ms"]
+                )
+
+    rows.sort(key=lambda row: (row["thread_count"], row["batch_size"], row["runtime"]))
     return rows, validations
+
+
+def collect_exports() -> list[dict[str, Any]]:
+    exports: list[dict[str, Any]] = []
+    for path in sorted(EXPORT_PATTERN.parent.glob(EXPORT_PATTERN.name)):
+        data = load_json(path)
+        exports.append(
+            {
+                "batch": first(data, "batch_size"),
+                "opset": first(data, "opset_version", "opset"),
+                "export_time_ms": first(data, "export_time_ms"),
+                "model_size_mb": first(data, "model_size_mb"),
+                "checker_passed": first(data, "checker_passed"),
+                "node_count": first(data, "node_count"),
+                "operator_counts": first(data, "operator_counts"),
+            }
+        )
+    return exports
+
+
+def collect_environment() -> dict[str, Any]:
+    if not ENVIRONMENT_PATH.exists():
+        return {}
+    return load_json(ENVIRONMENT_PATH)
 
 
 def csv_value(value: Any) -> Any:
@@ -282,14 +352,13 @@ def write_csv(rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows(
-            {field: csv_value(row.get(field)) for field in CSV_FIELDS} for row in rows
+            {field: csv_value(row.get(field)) for field in CSV_FIELDS}
+            for row in rows
         )
 
 
 def number(value: Any, digits: int = 3) -> str:
-    if not isinstance(value, (int, float)):
-        return MISSING
-    return f"{value:.{digits}f}"
+    return f"{value:.{digits}f}" if isinstance(value, (int, float)) else MISSING
 
 
 def boolean(value: Any) -> str:
@@ -308,12 +377,6 @@ def pct_change(value: Any, baseline: Any) -> str:
     return f"{(value / baseline - 1) * 100:+.1f}%"
 
 
-def ratio(value: Any, baseline: Any) -> str:
-    if not isinstance(value, (int, float)) or not isinstance(baseline, (int, float)) or baseline == 0:
-        return MISSING
-    return f"{value / baseline:.3f}x"
-
-
 def md_table(headers: list[str], body: list[list[str]]) -> str:
     lines = [
         "| " + " | ".join(headers) + " |",
@@ -324,373 +387,370 @@ def md_table(headers: list[str], body: list[list[str]]) -> str:
 
 
 def report_text(
-    rows: list[dict[str, Any]], validations: dict[int, dict[str, Any]]
+    rows: list[dict[str, Any]],
+    validations: dict[tuple[int, int], dict[str, Any]],
+    exports: list[dict[str, Any]],
+    environment: dict[str, Any],
 ) -> str:
-    indexed = {(row["runtime"], row["batch_size"]): row for row in rows}
     batches = sorted({row["batch_size"] for row in rows})
-    speedups = {
-        batch: indexed.get(("onnxruntime_cpu", batch), {}).get("onnx_speedup")
-        for batch in batches
+    threads = sorted({row["thread_count"] for row in rows})
+    indexed = {
+        (row["runtime"], row["batch_size"], row["thread_count"]): row
+        for row in rows
     }
 
-    all_results = []
-    for row in rows:
-        all_results.append(
-            [
-                runtime_label(row["runtime"]),
-                str(row["batch_size"]),
-                number(row["mean_latency_ms"]),
-                number(row["median_latency_ms"]),
-                number(row["p95_latency_ms"]),
-                number(row["min_latency_ms"]),
-                number(row["max_latency_ms"]),
-                number(row["per_image_latency_ms"]),
-                number(row["throughput_samples_per_s"]),
-                number(row["onnx_speedup"]),
-                number(row["initialization_ms"]),
-                number(row["first_inference_ms"]),
-            ]
-        )
+    all_results = [
+        [
+            runtime_label(row["runtime"]),
+            str(row["thread_count"]),
+            str(row["batch_size"]),
+            number(row["mean_latency_ms"]),
+            number(row["median_latency_ms"]),
+            number(row["p95_latency_ms"]),
+            number(row["p99_latency_ms"]),
+            number(row["std_dev_latency_ms"]),
+            f"[{number(row['ci95_lower_latency_ms'])}, {number(row['ci95_upper_latency_ms'])}]",
+            number(row["per_image_latency_ms"]),
+            number(row["throughput_samples_per_s"]),
+            number(row["onnx_speedup"]),
+            str(row["raw_latency_count"]) if row["raw_latency_count"] is not None else MISSING,
+        ]
+        for row in rows
+    ]
 
-    comparisons = []
-    scalability = []
-    for batch in batches:
-        pytorch = indexed.get(("pytorch_cpu", batch), {})
-        onnx = indexed.get(("onnxruntime_cpu", batch), {})
-        comparisons.append(
-            [
-                str(batch),
-                number(pytorch.get("mean_latency_ms")),
-                number(onnx.get("mean_latency_ms")),
-                number(speedups.get(batch)),
-                number(pytorch.get("throughput_samples_per_s")),
-                number(onnx.get("throughput_samples_per_s")),
-            ]
-        )
-        for runtime in ("pytorch_cpu", "onnxruntime_cpu"):
-            current = indexed.get((runtime, batch), {})
-            baseline = indexed.get((runtime, batches[0]), {})
-            scalability.append(
+    runtime_comparisons: list[list[str]] = []
+    for threads_value in threads:
+        for batch in batches:
+            pytorch = indexed.get(("pytorch_cpu", batch, threads_value), {})
+            onnx = indexed.get(("onnxruntime_cpu", batch, threads_value), {})
+            if not pytorch and not onnx:
+                continue
+            runtime_comparisons.append(
                 [
-                    runtime_label(runtime),
+                    str(threads_value),
                     str(batch),
-                    ratio(current.get("mean_latency_ms"), baseline.get("mean_latency_ms")),
-                    pct_change(
-                        current.get("per_image_latency_ms"),
-                        baseline.get("per_image_latency_ms"),
-                    ),
-                    pct_change(
-                        current.get("throughput_samples_per_s"),
-                        baseline.get("throughput_samples_per_s"),
-                    ),
-                    number(speedups.get(batch))
-                    if runtime == "onnxruntime_cpu"
-                    else MISSING,
+                    number(pytorch.get("mean_latency_ms")),
+                    number(onnx.get("mean_latency_ms")),
+                    number(onnx.get("onnx_speedup")),
+                    number(pytorch.get("throughput_samples_per_s")),
+                    number(onnx.get("throughput_samples_per_s")),
                 ]
             )
 
-    initialization = [
-        [
-            runtime_label(row["runtime"]),
-            str(row["batch_size"]),
-            row["initialization_type"],
-            number(row["initialization_ms"]),
-            number(row["input_loading_ms"]),
-            number(row["tensor_conversion_ms"]),
-            number(row["first_inference_ms"]),
-            ratio(row["first_inference_ms"], row["mean_latency_ms"]),
-        ]
-        for row in rows
-    ]
-    memory = [
-        [
-            runtime_label(row["runtime"]),
-            str(row["batch_size"]),
-            number(row["rss_before_initialization_mb"]),
-            number(row["rss_after_initialization_mb"]),
-            number(row["initialization_rss_increase_mb"]),
-            number(row["final_rss_mb"]),
-            number(row["peak_rss_mb"]),
-        ]
-        for row in rows
-    ]
+    thread_rows: list[list[str]] = []
+    for runtime in ("pytorch_cpu", "onnxruntime_cpu"):
+        for batch in batches:
+            candidates = [row for row in rows if row["runtime"] == runtime and row["batch_size"] == batch]
+            if not candidates:
+                continue
+            baseline = min(candidates, key=lambda row: row["thread_count"])
+            for row in sorted(candidates, key=lambda item: item["thread_count"]):
+                thread_rows.append(
+                    [
+                        runtime_label(runtime),
+                        str(batch),
+                        str(row["thread_count"]),
+                        number(row["mean_latency_ms"]),
+                        number(row["thread_latency_speedup"]),
+                        pct_change(row["throughput_samples_per_s"], baseline["throughput_samples_per_s"]),
+                        number(row["p99_latency_ms"]),
+                    ]
+                )
+
+    batch_rows: list[list[str]] = []
+    for runtime in ("pytorch_cpu", "onnxruntime_cpu"):
+        for threads_value in threads:
+            candidates = [row for row in rows if row["runtime"] == runtime and row["thread_count"] == threads_value]
+            if not candidates:
+                continue
+            baseline = min(candidates, key=lambda row: row["batch_size"])
+            for row in sorted(candidates, key=lambda item: item["batch_size"]):
+                batch_rows.append(
+                    [
+                        runtime_label(runtime),
+                        str(threads_value),
+                        str(row["batch_size"]),
+                        number(row["mean_latency_ms"]),
+                        pct_change(row["per_image_latency_ms"], baseline["per_image_latency_ms"]),
+                        pct_change(row["throughput_samples_per_s"], baseline["throughput_samples_per_s"]),
+                    ]
+                )
+
     validation_rows = [
         [
             str(batch),
+            str(threads_value),
             number(values.get("validation_max_difference"), 9),
             number(values.get("validation_mean_difference"), 9),
             boolean(values.get("validation_allclose")),
             boolean(values.get("validation_top1_match")),
         ]
-        for batch, values in sorted(validations.items())
+        for (batch, threads_value), values in sorted(validations.items(), key=lambda item: (item[0][1], item[0][0]))
     ]
 
-    common = rows[0]
-    shapes = ", ".join(
-        f"B{batch}: {json.dumps(indexed[next(key for key in indexed if key[1] == batch)]['input_shape'], separators=(',', ':'))}"
-        for batch in batches
-    )
-    dtype_values = sorted(
-        {str(row["dtype"]) for row in rows if row.get("dtype") is not None}
-    )
-    model_values = sorted(
-        {str(row["model"]) for row in rows if row.get("model") is not None}
-    )
-    seeds = sorted({str(row["seed"]) for row in rows if row.get("seed") is not None})
-    validation_passed = all(
-        values.get("validation_allclose") is True
-        and values.get("validation_top1_match") is True
-        for values in validations.values()
-    ) and set(validations) == set(batches)
+    export_rows = [
+        [
+            str(item.get("batch", MISSING)),
+            str(item.get("opset", MISSING)),
+            number(item.get("export_time_ms")),
+            number(item.get("model_size_mb")),
+            boolean(item.get("checker_passed")),
+            str(item.get("node_count", MISSING)),
+            json.dumps(item.get("operator_counts"), ensure_ascii=False, separators=(",", ":"))
+            if isinstance(item.get("operator_counts"), dict)
+            else MISSING,
+        ]
+        for item in exports
+    ]
 
-    pytorch_b1 = indexed.get(("pytorch_cpu", batches[0]), {})
-    pytorch_b4 = indexed.get(("pytorch_cpu", 4), {})
-    pytorch_b16 = indexed.get(("pytorch_cpu", 16), {})
-    onnx_b1 = indexed.get(("onnxruntime_cpu", batches[0]), {})
-    onnx_b4 = indexed.get(("onnxruntime_cpu", 4), {})
-    onnx_b16 = indexed.get(("onnxruntime_cpu", 16), {})
+    package_versions = environment.get("package_versions", {}) if isinstance(environment, dict) else {}
+    env_rows = [
+        ["Hostname", str(environment.get("hostname", MISSING))],
+        ["OS", str(environment.get("os", MISSING))],
+        ["Kernel", str(environment.get("kernel", MISSING))],
+        ["Architecture", str(environment.get("architecture", MISSING))],
+        ["CPU", str(environment.get("cpu_model", MISSING))],
+        ["Physical / Logical cores", f"{environment.get('physical_cpu_cores', MISSING)} / {environment.get('logical_cpu_cores', MISSING)}"],
+        ["RAM (GB)", str(environment.get("ram_gb", MISSING))],
+        ["Python", str(environment.get("python_version", MISSING))],
+        ["PyTorch", str(package_versions.get("torch", MISSING))],
+        ["Torchvision", str(package_versions.get("torchvision", MISSING))],
+        ["ONNX", str(package_versions.get("onnx", MISSING))],
+        ["ONNX Runtime", str(package_versions.get("onnxruntime", MISSING))],
+        ["Virtual environment", str(environment.get("virtual_environment", MISSING))],
+        ["Git commit", str(environment.get("git_commit", MISSING))],
+    ]
+
+    expected_validation_keys = {(batch, thread) for batch in batches for thread in threads}
+    validation_passed = (
+        expected_validation_keys.issubset(validations.keys())
+        and all(
+            validations[key].get("validation_allclose") is True
+            and validations[key].get("validation_top1_match") is True
+            for key in expected_validation_keys
+        )
+    )
+
+    missing_raw = [row for row in rows if row["raw_latency_count"] != row["measurement_count"]]
+    missing_stats = [
+        row for row in rows
+        if any(row.get(key) is None for key in (
+            "p99_latency_ms",
+            "std_dev_latency_ms",
+            "ci95_lower_latency_ms",
+            "ci95_upper_latency_ms",
+        ))
+    ]
+
+    best_by_condition: list[str] = []
+    for thread in threads:
+        for batch in batches:
+            candidates = [
+                row for row in rows
+                if row["thread_count"] == thread
+                and row["batch_size"] == batch
+                and isinstance(row["mean_latency_ms"], (int, float))
+            ]
+            if candidates:
+                best = min(candidates, key=lambda row: row["mean_latency_ms"])
+                best_by_condition.append(
+                    f"- T{thread}, B{batch}: {runtime_label(best['runtime'])} mean {number(best['mean_latency_ms'])} ms"
+                )
 
     lines = [
         "# CPU Benchmark Report",
         "",
         "## 데이터 범위",
         "",
-        f"- PyTorch 결과 {sum(row['runtime'] == 'pytorch_cpu' for row in rows)}개: `benchmark/results/pytorch/*.json`",
-        f"- ONNX Runtime 결과 {sum(row['runtime'] == 'onnxruntime_cpu' for row in rows)}개: `benchmark/results/onnx/*.json`",
-        f"- Validation 결과 {len(validations)}개: `benchmark/results/validation/*.json`",
-        f"- 분석 Batch: {', '.join(map(str, batches))}. 원본 JSON은 읽기만 했다.",
+        f"- 분석 Batch: {', '.join(map(str, batches))}",
+        f"- 분석 Intra-op thread: {', '.join(map(str, threads))}",
+        f"- 성능 결과: {len(rows)}개",
+        f"- Validation 결과: {len(validations)}개",
+        f"- ONNX Export 결과: {len(exports)}개",
         "",
-        "## 실험 환경",
+        "## 재현 환경",
         "",
-        md_table(
-            ["항목", "기록값"],
-            [
-                ["Model", ", ".join(model_values) if model_values else MISSING],
-                ["Runtime", "PyTorch CPU, ONNX Runtime CPU (CPUExecutionProvider)"],
-                ["Intra-op threads", str(common["thread_count"]) if common["thread_count"] is not None else MISSING],
-                ["Inter-op threads", str(common["inter_op_thread_count"]) if common["inter_op_thread_count"] is not None else MISSING],
-                ["Warm-up", str(common["warmup_count"]) if common["warmup_count"] is not None else MISSING],
-                ["측정 반복", str(common["measurement_count"]) if common["measurement_count"] is not None else MISSING],
-                ["Seed", ", ".join(seeds) if seeds else MISSING],
-                ["Input shape", shapes],
-                ["Dtype", ", ".join(dtype_values) if dtype_values else MISSING],
-                ["CPU 모델 / OS / Runtime 버전", MISSING],
-            ],
-        ),
+        md_table(["항목", "기록값"], env_rows),
         "",
-        "환경값은 JSON에 기록된 범위만 사용했다. CPU 모델, OS, PyTorch/ONNX Runtime 버전은 기록되지 않아 추정하지 않았다.",
+        "## 전체 측정 결과",
         "",
-        "## 전체 측정 결과 표",
-        "",
-        "Latency 단위 ms, Throughput 단위 samples/s다. Speedup은 같은 Batch의 `PyTorch mean / ONNX mean`이며 ONNX 행에 표시한다.",
+        "Latency 단위는 ms, Throughput 단위는 images/s다. ONNX speedup은 동일 Batch·Thread 조건에서 PyTorch mean / ONNX mean이다.",
         "",
         md_table(
             [
                 "Runtime",
+                "Threads",
                 "Batch",
                 "Mean",
                 "Median",
                 "P95",
-                "Min",
-                "Max",
+                "P99",
+                "Std",
+                "95% CI",
                 "Per-image",
                 "Throughput",
                 "ONNX speedup",
-                "Init",
-                "First",
+                "Raw count",
             ],
             all_results,
         ),
         "",
-        "## PyTorch CPU와 ONNX Runtime CPU 비교",
+        "## Runtime 비교",
         "",
         md_table(
             [
+                "Threads",
                 "Batch",
-                "PyTorch mean (ms)",
-                "ONNX mean (ms)",
+                "PyTorch mean",
+                "ONNX mean",
                 "ONNX speedup",
-                "PyTorch samples/s",
-                "ONNX samples/s",
+                "PyTorch images/s",
+                "ONNX images/s",
             ],
-            comparisons,
+            runtime_comparisons,
         ),
         "",
-        f"ONNX Runtime CPU가 측정된 모든 Batch에서 더 낮은 mean latency를 보였다. Speedup은 B1 {number(speedups.get(1))}x, B4 {number(speedups.get(4))}x, B16 {number(speedups.get(16))}x다. Batch 증가와 함께 이 데이터의 ONNX 이점은 감소했다. 결과 파일만으로 커널 구현, 그래프 최적화, 메모리 접근 등 원인을 확정할 수 없다.",
+        "## Thread 확장성",
         "",
-        "## Batch 1, 4, 16 확장성",
-        "",
-        "Mean 배수, Per-image 변화, Throughput 변화는 각 Runtime의 B1 대비다.",
+        "Thread latency speedup은 각 Runtime·Batch에서 가장 작은 Thread 수를 기준으로 계산한다.",
         "",
         md_table(
             [
                 "Runtime",
                 "Batch",
-                "Mean 배수",
-                "Per-image 변화",
+                "Threads",
+                "Mean",
+                "Latency speedup",
                 "Throughput 변화",
-                "ONNX speedup",
+                "P99",
             ],
-            scalability,
+            thread_rows,
         ),
         "",
-        f"PyTorch는 B4에서 per-image latency가 B1 대비 {pct_change(pytorch_b4.get('per_image_latency_ms'), pytorch_b1.get('per_image_latency_ms'))}, throughput은 {pct_change(pytorch_b4.get('throughput_samples_per_s'), pytorch_b1.get('throughput_samples_per_s'))}였다. B16에서는 각각 {pct_change(pytorch_b16.get('per_image_latency_ms'), pytorch_b1.get('per_image_latency_ms'))}, {pct_change(pytorch_b16.get('throughput_samples_per_s'), pytorch_b1.get('throughput_samples_per_s'))}였다.",
+        "## Batch 확장성",
         "",
-        f"ONNX Runtime은 B4에서 per-image latency가 B1 대비 {pct_change(onnx_b4.get('per_image_latency_ms'), onnx_b1.get('per_image_latency_ms'))}, throughput은 {pct_change(onnx_b4.get('throughput_samples_per_s'), onnx_b1.get('throughput_samples_per_s'))}였다. B16에서는 각각 {pct_change(onnx_b16.get('per_image_latency_ms'), onnx_b1.get('per_image_latency_ms'))}, {pct_change(onnx_b16.get('throughput_samples_per_s'), onnx_b1.get('throughput_samples_per_s'))}였다.",
-        "",
-        "## Latency와 Throughput 분석",
-        "",
-        f"PyTorch 최고 throughput은 B4의 {number(pytorch_b4.get('throughput_samples_per_s'))} samples/s다. ONNX Runtime 최고 throughput은 B1의 {number(onnx_b1.get('throughput_samples_per_s'))} samples/s이며 B4는 비슷하지만 B16에서 {number(onnx_b16.get('throughput_samples_per_s'))} samples/s로 낮아졌다. 큰 Batch가 자동으로 더 좋은 per-image latency나 throughput을 만들지 않았다.",
-        "",
-        "Mean, median, P95, min, max는 JSON의 집계값을 그대로 사용했다. 원시 iteration latency가 없어 분산 형태를 복원할 수 없다.",
-        "",
-        "## 초기화와 First Inference 분석",
+        "Per-image와 Throughput 변화는 동일 Runtime·Thread에서 가장 작은 Batch를 기준으로 계산한다.",
         "",
         md_table(
-            [
-                "Runtime",
-                "Batch",
-                "초기화 종류",
-                "초기화 (ms)",
-                "Input load (ms)",
-                "NumPy→Tensor (ms)",
-                "First (ms)",
-                "First/Mean",
-            ],
-            initialization,
+            ["Runtime", "Threads", "Batch", "Mean", "Per-image 변화", "Throughput 변화"],
+            batch_rows,
         ),
         "",
-        "PyTorch는 model initialization, ONNX Runtime은 session loading을 별도 항목으로 유지했다. ONNX JSON에 NumPy→Tensor 변환값은 없어 `missing`이다. First inference는 대체로 steady-state mean보다 높지만 ONNX B16은 낮다. 따라서 First inference를 항상 초기 실행 페널티로 해석할 수 없다.",
-        "",
-        "## Memory와 RSS 분석",
+        "## ONNX Export 기록",
         "",
         md_table(
-            [
-                "Runtime",
-                "Batch",
-                "생성 전 RSS",
-                "생성 후 RSS",
-                "생성 증가분",
-                "Final RSS",
-                "Peak RSS",
-            ],
-            memory,
-        ),
+            ["Batch", "Opset", "Export ms", "Size MB", "Checker", "Nodes", "Operator counts"],
+            export_rows,
+        ) if export_rows else "ONNX Export 메타데이터가 없다.",
         "",
-        "생성 전/후 차이와 JSON의 model/session RSS delta는 Model 또는 Session 생성 증가분이다. Final/Peak RSS는 전체 프로세스 RSS다. PyTorch와 ONNX의 생성 전 RSS가 크게 다르므로 전체 RSS 차이를 Model 또는 Session 자체 메모리 차이로 간주하면 안 된다. 별도 프로세스의 런타임 기본 메모리와 측정 시점이 포함될 수 있다.",
-        "",
-        "## Validation 분석",
+        "## 출력 검증",
         "",
         md_table(
-            ["Batch", "Max difference", "Mean difference", "Allclose", "Top-1 일치"],
+            ["Batch", "Threads", "Max diff", "Mean diff", "Allclose", "Top-1"],
             validation_rows,
-        ),
+        ) if validation_rows else "Validation 결과가 없다.",
         "",
-        f"Batch별 Validation 전체 통과 여부: **{'전체 통과' if validation_passed else '전체 통과 아님'}**. Allclose와 Top-1 일치를 각각 확인했다.",
+        f"전체 Batch·Thread 검증 결과: **{'전체 통과' if validation_passed else '누락 또는 실패 있음'}**",
         "",
-        "## 이상치와 가능한 원인",
+        "## 조건별 최저 Mean Runtime",
         "",
-        f"- B4 PyTorch max latency {number(pytorch_b4.get('max_latency_ms'))} ms는 median {number(pytorch_b4.get('median_latency_ms'))} ms보다 {pct_change(pytorch_b4.get('max_latency_ms'), pytorch_b4.get('median_latency_ms'))} 높다.",
-        f"- B4 ONNX max latency {number(onnx_b4.get('max_latency_ms'))} ms는 median {number(onnx_b4.get('median_latency_ms'))} ms보다 {pct_change(onnx_b4.get('max_latency_ms'), onnx_b4.get('median_latency_ms'))} 높다.",
-        f"- ONNX B16 mean {number(onnx_b16.get('mean_latency_ms'))} ms가 median {number(onnx_b16.get('median_latency_ms'))} ms보다 낮고, first inference {number(onnx_b16.get('first_inference_ms'))} ms도 mean보다 낮다.",
-        "- 모든 ONNX 결과에서 Final RSS가 기록된 Peak RSS보다 소폭 높다. Peak 측정 구간 또는 측정 시점 정의를 확인할 필요가 있다.",
-        "- 가능한 요인은 OS 스케줄링, CPU 주파수 변화, 캐시 상태, 백그라운드 부하, 메모리 할당 등이다. 원시 latency와 환경 로그가 없어 어느 원인도 확정할 수 없다.",
+        *best_by_condition,
         "",
-        "## 실험 한계",
+        "## 데이터 품질 점검",
         "",
-        "- 원시 iteration latency가 없다. 표준편차, P99, Confidence Interval을 계산하지 않았다.",
-        "- CPU 모델, OS, Runtime/라이브러리 버전, 전원 정책, CPU affinity, 백그라운드 부하가 기록되지 않았다.",
-        "- Seed가 기록되지 않았다.",
-        "- 각 Runtime/Batch 조합이 집계 JSON 1개뿐이다. 실행 간 변동성과 재현성을 평가할 수 없다.",
-        "- PyTorch와 ONNX의 초기 프로세스 RSS가 달라 전체 RSS 절대값의 직접 비교가 제한된다.",
-        "- 결과는 ResNet-18, float32, thread 4, 입력 크기 224×224 범위에 한정된다.",
+        f"- 원시 Latency 개수 불일치 또는 누락: {len(missing_raw)}개",
+        f"- P99·표준편차·95% CI 누락: {len(missing_stats)}개",
+        f"- 기대 Validation 조합: {len(expected_validation_keys)}개, 실제: {len(validations)}개",
         "",
-        "## 다음 실험 제안",
+        "## 해석 시 주의사항",
         "",
-        "1. 원시 iteration latency와 실행별 타임스탬프를 저장하고 독립 실행을 여러 번 반복한다.",
-        "2. CPU 모델, OS, PyTorch/ONNX Runtime 버전, 전원 정책, affinity, 동시 부하를 기록한다.",
-        "3. Thread 수를 1/2/4/8로 바꾸고 Batch 1/4/16의 latency, throughput, speedup을 다시 측정한다.",
-        "4. RSS 샘플링 구간을 명시하고 초기 프로세스, 생성 직후, warm-up 후, 측정 중 peak를 같은 정의로 기록한다.",
-        "5. 입력을 여러 seed로 생성하고 각 Batch에서 Allclose와 Top-1 validation을 반복한다.",
+        "- Thread 수가 많다고 항상 Mean, P99, Throughput이 개선되는 것은 아니다.",
+        "- Runtime 우위는 Batch와 Thread 조건을 고정한 뒤 비교해야 한다.",
+        "- 95% CI는 한 실행 안의 iteration 표본에 대한 구간이며, 독립 프로세스 반복 간 재현성을 대신하지 않는다.",
+        "- RSS는 전체 프로세스와 Model/Session 생성 증가분을 구분해서 해석해야 한다.",
+        "- ONNX Checker 통과는 실행 가능성 검증이지 성능 향상 보장이 아니다.",
+        "",
+        "## 다음 단계",
+        "",
+        "1. 같은 Batch·Thread 조합을 독립 프로세스로 여러 번 반복해 실행 간 분산을 측정한다.",
+        "2. CPU affinity, 전원 정책, 백그라운드 부하를 기록한다.",
+        "3. Thread별 CPU utilization을 함께 수집한다.",
+        "4. Fixed Shape와 Dynamic Shape 비교로 확장한다.",
         "",
     ]
     return "\n".join(lines)
 
 
-def write_report(rows: list[dict[str, Any]], validations: dict[int, dict[str, Any]]) -> None:
+def write_report(
+    rows: list[dict[str, Any]],
+    validations: dict[tuple[int, int], dict[str, Any]],
+    exports: list[dict[str, Any]],
+    environment: dict[str, Any],
+) -> None:
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(report_text(rows, validations), encoding="utf-8")
+    REPORT_PATH.write_text(
+        report_text(rows, validations, exports, environment),
+        encoding="utf-8",
+    )
 
 
 def self_check() -> None:
-    runtime, batch = identity_from_filename(Path("onnx_metrics_b16_t4.json"))
-    assert runtime == "onnxruntime_cpu" and batch == 16
+    batch, threads = parse_batch_thread(Path("onnx_metrics_b16_t4.json"))
+    assert batch == 16 and threads == 4
 
     fixture = {
         "runtime": "pytorch",
         "device": "cpu",
         "batch_size": 4,
-        "intra_op_threads": 4,
+        "intra_op_threads": 2,
+        "inter_op_threads": 1,
         "warmup_count": 10,
         "measurement_count": 300,
-        "input_shape": [4, 3, 224, 224],
-        "input_dtype": "float32",
-        "model_initialization_ms": 12.5,
-        "input_load_ms": 1.25,
-        "tensor_conversion_ms": 0.02,
-        "first_inference_ms": 20.0,
         "mean_batch_latency_ms": 50.0,
         "median_batch_latency_ms": 49.0,
         "p95_batch_latency_ms": 55.0,
-        "min_batch_latency_ms": 45.0,
-        "max_batch_latency_ms": 60.0,
-        "rss_before_model_mb": 100.0,
-        "rss_after_model_mb": 125.0,
-        "final_rss_mb": 140.0,
-        "peak_rss_mb": 150.0,
+        "p99_batch_latency_ms": 58.0,
+        "std_dev_batch_latency_ms": 2.0,
+        "ci95_lower_batch_latency_ms": 49.77,
+        "ci95_upper_batch_latency_ms": 50.23,
+        "per_image_latency_ms": 12.5,
+        "throughput_images_per_second": 80.0,
     }
-    parsed = parse_result(Path("pytorch_metrics_b4_t4.json"), fixture)
-    assert parsed["runtime"] == "pytorch_cpu" and parsed["batch_size"] == 4
-    assert parsed["initialization_ms"] == 12.5
-    assert parsed["input_loading_ms"] == 1.25
-    assert parsed["tensor_conversion_ms"] == 0.02
-    assert parsed["median_latency_ms"] == 49.0
-    assert parsed["initialization_rss_increase_mb"] == 25.0
+    parsed = parse_result(Path("pytorch_metrics_b4_t2.json"), fixture)
+    assert parsed["runtime"] == "pytorch_cpu"
+    assert parsed["batch_size"] == 4
+    assert parsed["thread_count"] == 2
     assert math.isclose(parsed["throughput_samples_per_s"], 80.0)
-    assert math.isclose(derived_throughput(4, 50.0) or 0, 80.0)
-    assert math.isclose(derived_speedup(20.0, 10.0) or 0, 2.0)
+    assert math.isclose(derived_speedup(20.0, 10.0) or 0.0, 2.0)
 
-    validation_batch, validation = parse_validation(
-        Path("validation_b4.json"),
+    key, validation = parse_validation(
+        Path("validation_b4_t2.json"),
         {
             "batch_size": 4,
-            "max_absolute_difference": 1e-6,
-            "mean_absolute_difference": 1e-7,
+            "intra_op_threads": 2,
             "outputs_all_close": True,
             "same_top1": True,
         },
     )
-    assert validation_batch == 4
+    assert key == (4, 2)
     assert validation["validation_allclose"] is True
-    assert validation["validation_top1_match"] is True
     print("self-check: PASS")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--self-check",
-        action="store_true",
-        help="run parser and calculation checks without writing output files",
-    )
+    parser.add_argument("--self-check", action="store_true")
     args = parser.parse_args()
+
     if args.self_check:
         self_check()
         return
 
     rows, validations = collect_rows()
+    exports = collect_exports()
+    environment = collect_environment()
     write_csv(rows)
-    write_report(rows, validations)
+    write_report(rows, validations, exports, environment)
     print(f"wrote {relative_source(CSV_PATH)}")
     print(f"wrote {relative_source(REPORT_PATH)}")
 

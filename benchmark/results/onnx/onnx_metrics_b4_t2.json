@@ -1,0 +1,70 @@
+{
+  "recorded_at_utc": "2026-08-02T15:51:48.468965+00:00",
+  "command": "onnx_benchmark.py --threads 2 --batch 4 --warmup 10 --iterations 300",
+  "runtime": "onnxruntime",
+  "provider": "CPUExecutionProvider",
+  "available_providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "session_providers": [
+    "CPUExecutionProvider"
+  ],
+  "model": "resnet18",
+  "batch_size": 4,
+  "input_shape": [
+    4,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    4,
+    1000
+  ],
+  "input_dtype": "float32",
+  "intra_op_threads": 2,
+  "inter_op_threads": 1,
+  "execution_mode": "ORT_SEQUENTIAL",
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "input_name": "input",
+  "model_input_shape": [
+    4,
+    3,
+    224,
+    224
+  ],
+  "model_input_type": "tensor(float)",
+  "output_name": "output",
+  "model_output_shape": [
+    4,
+    1000
+  ],
+  "model_output_type": "tensor(float)",
+  "input_path": "benchmark/data/inputs/input_b4.npy",
+  "model_path": "benchmark/data/onnx_models/resnet18_b4.onnx",
+  "output_path": "benchmark/results/onnx/onnx_output_b4_t2.npy",
+  "raw_latency_path": "benchmark/results/raw/onnx_cpu_b4_t2_latencies.json",
+  "environment_path": "benchmark/results/environment/cpu_environment.json",
+  "input_load_ms": 1.3642299454659224,
+  "session_load_ms": 99.09916203469038,
+  "rss_before_session_mb": 45.5859375,
+  "rss_after_session_mb": 127.0234375,
+  "session_rss_delta_mb": 81.4375,
+  "first_inference_ms": 63.03957593627274,
+  "mean_batch_latency_ms": 65.27523725332382,
+  "median_batch_latency_ms": 65.74583548353985,
+  "p95_batch_latency_ms": 66.75951461074874,
+  "p99_batch_latency_ms": 70.85647611296736,
+  "min_batch_latency_ms": 61.07943598181009,
+  "max_batch_latency_ms": 75.75382199138403,
+  "std_dev_batch_latency_ms": 1.5125019930101447,
+  "ci95_lower_batch_latency_ms": 65.10408154049223,
+  "ci95_upper_batch_latency_ms": 65.44639296615541,
+  "ci95_half_width_batch_latency_ms": 0.17115571283159345,
+  "per_image_latency_ms": 16.318809313330956,
+  "throughput_images_per_second": 61.27898064125871,
+  "final_rss_mb": 156.609375,
+  "peak_rss_mb": 156.125
+}

@@ -1,0 +1,26 @@
+{
+  "batch_size": 1,
+  "intra_op_threads": 2,
+  "rtol": 0.0001,
+  "atol": 1e-05,
+  "pytorch_output_path": "benchmark/results/pytorch/pytorch_output_b1_t2.npy",
+  "onnx_output_path": "benchmark/results/onnx/onnx_output_b1_t2.npy",
+  "pytorch_output_shape": [
+    1,
+    1000
+  ],
+  "onnx_output_shape": [
+    1,
+    1000
+  ],
+  "max_absolute_difference": 4.5299530029296875e-06,
+  "mean_absolute_difference": 7.139090598684561e-07,
+  "outputs_all_close": true,
+  "pytorch_top1": [
+    107
+  ],
+  "onnx_top1": [
+    107
+  ],
+  "same_top1": true
+}
