@@ -211,9 +211,9 @@ def main() -> None:
         raise RuntimeError("NOTION_TOKEN이 없습니다.")
 
     page_env = (
-        "NOTION_CPU_PAGE_ID"
+        "https://app.notion.com/p/CPU-Benchmark-Report-3b04a399b7bb804f842ec3ba3310488c"
         if args.target == "cpu"
-        else "NOTION_GPU_PAGE_ID"
+        else "https://app.notion.com/p/GPU-Benchmark-Report-3b04a399b7bb802d99e3cc73d42db0ac"
     )
 
     page_id = os.environ.get(page_env)
