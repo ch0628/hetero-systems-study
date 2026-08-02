@@ -6,6 +6,8 @@ on:
       - gpu-benchmark
     paths:
       - "results/gpu/**/*.txt"
+      - "benchmark/results/pytorch/**/*.json"
+      - "benchmark/results/onnx/**/*.json"
       - "benchmark/results/validation/**/*.json"
 
   workflow_dispatch:
