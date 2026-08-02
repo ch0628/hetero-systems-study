@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
+import re
 import requests
 
 
@@ -51,6 +51,67 @@ def code_block(content: str) -> dict[str, Any]:
         },
     }
 
+def markdown_table_block(lines: list[str]) -> dict[str, Any] | None:
+    rows: list[list[str]] = []
+
+    for line in lines:
+        cells = [
+            cell.strip()
+            for cell in line.strip().strip("|").split("|")
+        ]
+        rows.append(cells)
+
+    if not rows:
+        return None
+
+    # Markdown 구분선 제거:
+    # | --- | ---: | :--- |
+    if len(rows) >= 2:
+        separator_pattern = re.compile(r"^:?-{3,}:?$")
+
+        if all(
+            separator_pattern.fullmatch(cell.replace(" ", ""))
+            for cell in rows[1]
+        ):
+            rows.pop(1)
+
+    if not rows:
+        return None
+
+    table_width = max(len(row) for row in rows)
+
+    # 모든 행의 열 개수를 동일하게 맞춘다.
+    normalized_rows = [
+        row + [""] * (table_width - len(row))
+        for row in rows
+    ]
+
+    table_rows = []
+
+    for row in normalized_rows:
+        table_rows.append(
+            {
+                "object": "block",
+                "type": "table_row",
+                "table_row": {
+                    "cells": [
+                        rich_text(cell)
+                        for cell in row
+                    ]
+                },
+            }
+        )
+
+    return {
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": table_width,
+            "has_column_header": True,
+            "has_row_header": False,
+            "children": table_rows,
+        },
+    }
 
 def markdown_to_blocks(markdown: str) -> list[dict[str, Any]]:
     blocks: list[dict[str, Any]] = []
@@ -65,9 +126,9 @@ def markdown_to_blocks(markdown: str) -> list[dict[str, Any]]:
         if not table_lines:
             return
 
-        table_text = "\n".join(table_lines)
-        for part in chunk_text(table_text):
-            blocks.append(code_block(part))
+        table = markdown_table_block(table_lines)
+        if table is not None:
+            blocks.append(table)
 
         table_lines = []
 
