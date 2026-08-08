@@ -1,0 +1,137 @@
+{
+  "schema_version": 2,
+  "runtime": "onnxruntime",
+  "provider_request": "cuda",
+  "run_id": "r04_o02",
+  "run_order": 2,
+  "started_at_utc": "2026-08-07T10:40:04.233776+00:00",
+  "hostname": "moana-r2",
+  "seed": 42,
+  "model": "resnet18",
+  "precision": "fp32",
+  "tf32": "off",
+  "batch_size": 4,
+  "warmup_count": 10,
+  "measurement_count": 300,
+  "raw_latency_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/raw/onnx_raw_cuda_b4_r04_o02.json",
+  "model_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/onnx_models/resnet18_b4.onnx",
+  "input_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/data/inputs/input_b4.npy",
+  "output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b4_r04_o02.npy",
+  "canonical_output_path": "/data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b4.npy",
+  "input_shape": [
+    4,
+    3,
+    224,
+    224
+  ],
+  "output_shape": [
+    4,
+    1000
+  ],
+  "input_dtype": "float32",
+  "python_version": "3.10.20",
+  "os": "Linux-5.4.0-216-generic-x86_64-with-glibc2.31",
+  "onnxruntime_version": "1.23.2",
+  "available_providers": [
+    "TensorrtExecutionProvider",
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "requested_providers": [
+    [
+      "CUDAExecutionProvider",
+      {
+        "device_id": 0,
+        "use_tf32": 0
+      }
+    ]
+  ],
+  "session_providers": [
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "provider_options": {
+    "CPUExecutionProvider": {},
+    "CUDAExecutionProvider": {
+      "sdpa_kernel": "0",
+      "use_tf32": "0",
+      "fuse_conv_bias": "0",
+      "prefer_nhwc": "0",
+      "tunable_op_max_tuning_duration_ms": "0",
+      "enable_skip_layer_norm_strict_mode": "0",
+      "tunable_op_tuning_enable": "0",
+      "tunable_op_enable": "0",
+      "use_ep_level_unified_stream": "0",
+      "device_id": "0",
+      "has_user_compute_stream": "0",
+      "gpu_external_empty_cache": "0",
+      "cudnn_conv_algo_search": "EXHAUSTIVE",
+      "cudnn_conv1d_pad_to_nc1d": "0",
+      "gpu_mem_limit": "18446744073709551615",
+      "gpu_external_alloc": "0",
+      "gpu_external_free": "0",
+      "arena_extend_strategy": "kNextPowerOfTwo",
+      "do_copy_in_default_stream": "1",
+      "enable_cuda_graph": "0",
+      "user_compute_stream": "0",
+      "cudnn_conv_use_max_workspace": "1"
+    }
+  },
+  "cpu_fallback_allowed": false,
+  "nvidia_driver_version": "535.161.07",
+  "gpu_name": "NVIDIA GeForce RTX 3090",
+  "cuda_visible_devices": "0",
+  "slurm_job_id": "133860",
+  "slurm_job_name": "bash",
+  "slurm_step_id": "0",
+  "git_commit": "9ed394efb61fa08d3b741388e4c5e253e2a8871b",
+  "input_load_ms": 2.2550970024894923,
+  "session_load_ms": 244.8372849903535,
+  "first_inference_ms": 2150.7309839944355,
+  "io_binding_prepare_ms": 1.3192320038797334,
+  "rss_before_session_mb": 158.4921875,
+  "rss_after_session_mb": 321.10546875,
+  "session_rss_delta_mb": 162.61328125,
+  "final_rss_mb": 574.23828125,
+  "peak_rss_mb": 574.23828125,
+  "intra_op_threads": 4,
+  "inter_op_threads": 1,
+  "execution_mode": "ORT_SEQUENTIAL",
+  "sections": {
+    "end_to_end": {
+      "measurement_count": 300,
+      "mean_batch_latency_ms": 1.8047963993740268,
+      "median_batch_latency_ms": 1.757899000949692,
+      "p95_batch_latency_ms": 2.0175734549411573,
+      "p99_batch_latency_ms": 2.076361198851373,
+      "min_batch_latency_ms": 1.6918899927986786,
+      "max_batch_latency_ms": 2.118457996402867,
+      "sample_stdev_ms": 0.10840710490290828,
+      "mean_ci95_lower_ms": 1.7925289806192655,
+      "mean_ci95_upper_ms": 1.8170638181287881,
+      "per_image_latency_ms": 0.4511990998435067,
+      "throughput_images_per_second": 2216.3164783503307
+    },
+    "gpu_only": {
+      "measurement_count": 300,
+      "mean_batch_latency_ms": 1.532646283012582,
+      "median_batch_latency_ms": 1.5298410071409307,
+      "p95_batch_latency_ms": 1.5437939982803073,
+      "p99_batch_latency_ms": 1.6384732842561789,
+      "min_batch_latency_ms": 1.4850310108158737,
+      "max_batch_latency_ms": 1.6548810090171173,
+      "sample_stdev_ms": 0.01950840993141225,
+      "mean_ci95_lower_ms": 1.530438698610411,
+      "mean_ci95_upper_ms": 1.534853867414753,
+      "per_image_latency_ms": 0.3831615707531455,
+      "throughput_images_per_second": 2609.8650708482896
+    }
+  },
+  "gpu_only_method": "IOBinding with GPU-resident input/output",
+  "profiler_trace_path": null,
+  "measurement_boundary": {
+    "gpu_only": "IOBinding keeps input and output on GPU; includes ORT launch and output synchronization",
+    "end_to_end": "NumPy CPU input, ORT CUDA execution, and NumPy CPU output"
+  },
+  "tf32_control": "explicit CUDAExecutionProvider use_tf32 option"
+}

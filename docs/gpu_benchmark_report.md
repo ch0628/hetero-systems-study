@@ -1,145 +1,100 @@
-# GPU 벤치마크 분석 보고서
+# GPU 벤치마크 보완실험 보고서
 
 ## 데이터 범위
 
-- 성능 로그: `results/gpu/*.txt` (6개)
-- 검증 결과: `benchmark/results/validation/*.json` (6개)
-- 원본 파일은 읽기만 했으며 수정하지 않았다.
-- 값이 기록되지 않은 항목은 `missing`으로 표기했다.
+- 독립 실행 성능 JSON: 30개
+- Telemetry CSV: 30개
+- CUDA 검증 JSON: 6개
+- Profiler 파일: 4개
 
 ## 실험 환경
 
 | 항목 | 기록값 |
 | --- | --- |
-| 호스트 | moana-r3 |
+| 호스트 | moana-r2 |
 | GPU | NVIDIA GeForce RTX 3090 |
-| 요청 장치/Provider | cuda; cuda |
-| ONNX 실제 Provider | ['CUDAExecutionProvider', 'CPUExecutionProvider'] |
+| 모델 | resnet18 |
+| 정밀도 | fp32 |
 | PyTorch | 2.4.0+cu121 |
-| ONNX Runtime 버전 | missing |
-| CUDA runtime | 12.1 |
+| ONNX Runtime | 1.23.2 |
+| CUDA Runtime | 12.1 |
 | cuDNN | 90100 |
-| 입력 shape | (1, 3, 224, 224); (16, 3, 224, 224); (4, 3, 224, 224) |
-| 출력 shape | (1, 1000); (16, 1000); (4, 1000) |
-| 모델명 | missing |
-| 정밀도 | missing |
-| warm-up/측정 반복 수 | missing |
+| NVIDIA Driver | 535.161.07 |
+| TF32 | off |
+| Warm-up | 10 |
+| 측정 반복 | 300 |
+| Seed | 42 |
+| Slurm Job ID | 133860 |
+| ONNX Providers | ["CUDAExecutionProvider", "CPUExecutionProvider"] |
 
-환경 항목은 로그에 명시된 값만 사용했다. `Actual providers`에 CPU fallback Provider도 함께 등록되어 있지만, 연산별 Provider 배치는 로그에 없어 확인할 수 없다.
+## 독립 실행 집계
 
-## 전체 측정 결과
+| Runtime | Batch | Runs | GPU mean (ms) | Run std (ms) | Run mean 95% CI | P95 mean (ms) | P99 mean (ms) | GPU throughput | E2E mean (ms) | E2E throughput |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ONNX Runtime CUDA | 1 | 5 | 1.1904 | 0.0050 | [1.1860, 1.1948] | 1.2157 | 1.2847 | 840.03 | 1.3360 | 748.64 |
+| PyTorch CUDA | 1 | 5 | 3.7423 | 0.0446 | [3.7032, 3.7813] | 3.8931 | 3.9944 | 267.25 | 3.9418 | 253.74 |
+| ONNX Runtime CUDA | 4 | 5 | 1.5266 | 0.0040 | [1.5231, 1.5301] | 1.5475 | 1.6311 | 2620.22 | 1.8153 | 2203.64 |
+| PyTorch CUDA | 4 | 5 | 3.7143 | 0.0367 | [3.6822, 3.7465] | 3.8935 | 4.0635 | 1077.00 | 4.0695 | 983.02 |
+| ONNX Runtime CUDA | 16 | 5 | 3.8985 | 0.0088 | [3.8908, 3.9062] | 3.9226 | 3.9983 | 4104.15 | 4.7565 | 3363.98 |
+| PyTorch CUDA | 16 | 5 | 4.0247 | 0.0456 | [3.9847, 4.0646] | 4.1797 | 4.3677 | 3975.90 | 5.0590 | 3163.33 |
 
-### GPU-only latency
+## ONNX Runtime Speedup
 
-| Runtime | Batch | Mean (ms) | Median (ms) | P95 (ms) | Min (ms) | Max (ms) | Throughput (samples/s) |
+| Batch | GPU-only speedup | E2E speedup |
+| --- | --- | --- |
+| 1 | 3.144x | 2.950x |
+| 4 | 2.433x | 2.242x |
+| 16 | 1.032x | 1.064x |
+
+## GPU Telemetry
+
+| Runtime | Batch | Run | Samples | GPU util mean (%) | GPU util max (%) | Memory max (MB) | Temp max (C) | Power mean (W) | SM clock mean (MHz) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ONNX Runtime CUDA | 16 | r01_o01 | 23 | 51.17 | 98.00 | 572.00 | 59.0 | 195.30 | 1460.2 |
+| ONNX Runtime CUDA | 16 | r02_o03 | 23 | 54.74 | 98.00 | 570.00 | 60.0 | 230.88 | 1722.4 |
+| ONNX Runtime CUDA | 16 | r03_o01 | 22 | 53.14 | 98.00 | 574.00 | 60.0 | 238.78 | 1784.3 |
+| ONNX Runtime CUDA | 16 | r04_o04 | 29 | 43.62 | 98.00 | 572.00 | 61.0 | 208.17 | 1662.4 |
+| ONNX Runtime CUDA | 16 | r05_o03 | 28 | 41.89 | 98.00 | 576.00 | 61.0 | 202.65 | 1585.7 |
+| ONNX Runtime CUDA | 1 | r01_o03 | 13 | 26.62 | 88.00 | 414.00 | 51.0 | 135.56 | 1740.0 |
+| ONNX Runtime CUDA | 1 | r02_o06 | 13 | 25.92 | 86.00 | 414.00 | 56.0 | 144.19 | 1645.4 |
+| ONNX Runtime CUDA | 1 | r03_o05 | 20 | 17.10 | 87.00 | 416.00 | 56.0 | 127.98 | 1659.8 |
+| ONNX Runtime CUDA | 1 | r04_o05 | 18 | 17.06 | 87.00 | 418.00 | 58.0 | 132.28 | 1650.8 |
+| ONNX Runtime CUDA | 1 | r05_o04 | 13 | 25.77 | 87.00 | 416.00 | 58.0 | 142.98 | 1741.2 |
+| ONNX Runtime CUDA | 4 | r01_o02 | 14 | 34.50 | 95.00 | 424.00 | 59.0 | 160.85 | 1631.8 |
+| ONNX Runtime CUDA | 4 | r02_o05 | 20 | 24.20 | 95.00 | 420.00 | 61.0 | 144.00 | 1661.2 |
+| ONNX Runtime CUDA | 4 | r03_o04 | 14 | 32.36 | 95.00 | 420.00 | 62.0 | 153.38 | 1400.4 |
+| ONNX Runtime CUDA | 4 | r04_o02 | 22 | 21.86 | 95.00 | 420.00 | 62.0 | 144.93 | 1635.7 |
+| ONNX Runtime CUDA | 4 | r05_o01 | 21 | 22.67 | 95.00 | 420.00 | 62.0 | 145.74 | 1667.1 |
+| PyTorch CUDA | 16 | r01_o05 | 47 | 27.17 | 95.00 | 530.00 | 59.0 | 153.12 | 941.8 |
+| PyTorch CUDA | 16 | r02_o01 | 50 | 25.44 | 97.00 | 530.00 | 60.0 | 138.33 | 869.4 |
+| PyTorch CUDA | 16 | r03_o06 | 48 | 24.65 | 97.00 | 530.00 | 62.0 | 161.97 | 1068.1 |
+| PyTorch CUDA | 16 | r04_o03 | 48 | 26.65 | 97.00 | 530.00 | 61.0 | 165.76 | 1036.9 |
+| PyTorch CUDA | 16 | r05_o06 | 48 | 25.06 | 97.00 | 530.00 | 61.0 | 147.05 | 888.1 |
+| PyTorch CUDA | 1 | r01_o06 | 46 | 7.59 | 32.00 | 410.00 | 44.0 | 100.25 | 956.1 |
+| PyTorch CUDA | 1 | r02_o04 | 46 | 8.30 | 32.00 | 410.00 | 47.0 | 106.20 | 918.6 |
+| PyTorch CUDA | 1 | r03_o02 | 48 | 7.29 | 32.00 | 410.00 | 49.0 | 104.03 | 911.2 |
+| PyTorch CUDA | 1 | r04_o06 | 49 | 7.76 | 32.00 | 410.00 | 51.0 | 97.86 | 888.1 |
+| PyTorch CUDA | 1 | r05_o05 | 46 | 8.26 | 32.00 | 410.00 | 52.0 | 101.08 | 914.7 |
+| PyTorch CUDA | 4 | r01_o04 | 49 | 9.94 | 43.00 | 436.00 | 50.0 | 112.42 | 913.5 |
+| PyTorch CUDA | 4 | r02_o02 | 46 | 10.85 | 42.00 | 436.00 | 51.0 | 115.68 | 895.4 |
+| PyTorch CUDA | 4 | r03_o03 | 46 | 10.00 | 42.00 | 436.00 | 52.0 | 97.99 | 880.8 |
+| PyTorch CUDA | 4 | r04_o01 | 47 | 10.51 | 42.00 | 436.00 | 54.0 | 113.55 | 868.7 |
+| PyTorch CUDA | 4 | r05_o02 | 46 | 10.74 | 42.00 | 436.00 | 55.0 | 121.58 | 962.9 |
+
+## 출력 검증
+
+| Batch | Validation | Max diff | Mean diff | Allclose | Top-1 | rtol | atol |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| PyTorch CUDA | 1 | 4.1009 | 4.1063 | 4.1698 | 4.0436 | 4.2341 | 243.85 |
-| ONNX Runtime CUDA | 1 | 0.9938 | 0.9883 | 1.0121 | 0.9695 | 1.1683 | 1006.24 |
-| PyTorch CUDA | 4 | 4.2221 | 4.2100 | 4.2966 | 4.1793 | 4.3457 | 947.40 |
-| ONNX Runtime CUDA | 4 | 1.3773 | 1.3753 | 1.3792 | 1.3642 | 1.5090 | 2904.23 |
-| PyTorch CUDA | 16 | 4.2338 | 4.2267 | 4.3125 | 4.1759 | 5.9654 | 3779.11 |
-| ONNX Runtime CUDA | 16 | 3.8386 | 3.8335 | 3.8705 | 3.7683 | 3.9903 | 4168.19 |
+| 1 | None | 0.00532269 | 0.00081287 | false | true | 0.0001 | 0.0000 |
+| 16 | None | 0.00786257 | 0.00122789 | false | true | 0.0001 | 0.0000 |
+| 16 | supplement | 0.00001054 | 0.00000189 | true | true | 0.0001 | 0.0000 |
+| 1 | supplement | 0.00000346 | 0.00000086 | true | true | 0.0001 | 0.0000 |
+| 4 | None | 0.00621176 | 0.00113087 | false | true | 0.0001 | 0.0000 |
+| 4 | supplement | 0.00000572 | 0.00000108 | true | true | 0.0001 | 0.0000 |
 
-### End-to-End latency
+## 판정
 
-| Runtime | Batch | Mean (ms) | Median (ms) | P95 (ms) | Min (ms) | Max (ms) | Throughput (samples/s) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| PyTorch CUDA | 1 | 4.3067 | 4.2926 | 4.3923 | 4.2531 | 4.4503 | 232.20 |
-| ONNX Runtime CUDA | 1 | 1.1037 | 1.0931 | 1.2201 | 1.0768 | 1.3846 | 906.04 |
-| PyTorch CUDA | 4 | 4.5772 | 4.5509 | 4.6487 | 4.5079 | 9.2311 | 873.90 |
-| ONNX Runtime CUDA | 4 | 1.6853 | 1.7273 | 1.7663 | 1.5732 | 1.8871 | 2373.46 |
-| PyTorch CUDA | 16 | 5.1350 | 5.1345 | 5.2176 | 5.0254 | 5.3717 | 3115.87 |
-| ONNX Runtime CUDA | 16 | 4.5941 | 4.5680 | 4.8621 | 4.4181 | 4.9899 | 3482.73 |
-
-### 초기화와 first inference
-
-| Runtime | Batch | 초기화 종류 | 초기화 (ms) | First inference (ms) |
-| --- | --- | --- | --- | --- |
-| PyTorch CUDA | 1 | Model initialization | 764.9986 | 2317.7179 |
-| ONNX Runtime CUDA | 1 | Session loading | 1069.2381 | 962.8064 |
-| PyTorch CUDA | 4 | Model initialization | 562.5119 | 549.8177 |
-| ONNX Runtime CUDA | 4 | Session loading | 308.0260 | 2481.1656 |
-| PyTorch CUDA | 16 | Model initialization | 400.4250 | 551.8982 |
-| ONNX Runtime CUDA | 16 | Session loading | 308.6302 | 2579.1292 |
-
-Throughput은 각 구간의 mean latency에 대해 `batch / (mean_latency_ms / 1000)`으로 계산했다. 초기화와 first inference는 steady-state latency/throughput 계산에서 제외했다.
-
-## PyTorch와 ONNX Runtime 비교
-
-| Batch | PyTorch GPU mean (ms) | ONNX GPU mean (ms) | ONNX GPU speedup | PyTorch E2E mean (ms) | ONNX E2E mean (ms) | ONNX E2E speedup |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | 4.1009 | 0.9938 | 4.126 | 4.3067 | 1.1037 | 3.902 |
-| 4 | 4.2221 | 1.3773 | 3.065 | 4.5772 | 1.6853 | 2.716 |
-| 16 | 4.2338 | 3.8386 | 1.103 | 5.1350 | 4.5941 | 1.118 |
-
-- ONNX Runtime이 모든 batch에서 더 낮은 mean latency를 기록했다. GPU-only speedup 범위: 1.103x–4.126x.
-- End-to-End speedup 범위: 1.118x–3.902x.
-- batch가 커질수록 ONNX Runtime의 우위가 감소했다. 이는 측정된 경향이며 원인은 이 로그만으로 확정할 수 없다.
-
-## Batch 1, 4, 16 확장성
-
-| Runtime | Batch | GPU mean (ms) | GPU latency vs B1 | GPU throughput | GPU throughput vs B1 | E2E mean (ms) | E2E throughput | E2E throughput vs B1 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PyTorch CUDA | 1 | 4.1009 | 0.00% | 243.85 | 1.00x | 4.3067 | 232.20 | 1.00x |
-| PyTorch CUDA | 4 | 4.2221 | 2.96% | 947.40 | 3.89x | 4.5772 | 873.90 | 3.76x |
-| PyTorch CUDA | 16 | 4.2338 | 3.24% | 3779.11 | 15.50x | 5.1350 | 3115.87 | 13.42x |
-| ONNX Runtime CUDA | 1 | 0.9938 | 0.00% | 1006.24 | 1.00x | 1.1037 | 906.04 | 1.00x |
-| ONNX Runtime CUDA | 4 | 1.3773 | 38.59% | 2904.23 | 2.89x | 1.6853 | 2373.46 | 2.62x |
-| ONNX Runtime CUDA | 16 | 3.8386 | 286.25% | 4168.19 | 4.14x | 4.5941 | 3482.73 | 3.84x |
-
-## Latency와 throughput 분석
-
-- PyTorch CUDA: batch 1→16에서 GPU-only mean latency는 4.1009 ms→4.2338 ms, throughput은 243.85→3779.11 samples/s였다.
-- ONNX Runtime CUDA: batch 1→16에서 GPU-only mean latency는 0.9938 ms→3.8386 ms, throughput은 1006.24→4168.19 samples/s였다.
-- PyTorch CUDA, batch 1: E2E와 GPU-only mean 차이는 0.2058 ms (5.02%).
-- ONNX Runtime CUDA, batch 1: E2E와 GPU-only mean 차이는 0.1099 ms (11.06%).
-- PyTorch CUDA, batch 4: E2E와 GPU-only mean 차이는 0.3551 ms (8.41%).
-- ONNX Runtime CUDA, batch 4: E2E와 GPU-only mean 차이는 0.3080 ms (22.36%).
-- PyTorch CUDA, batch 16: E2E와 GPU-only mean 차이는 0.9012 ms (21.29%).
-- ONNX Runtime CUDA, batch 16: E2E와 GPU-only mean 차이는 0.7555 ms (19.68%).
-
-GPU-only는 장치 실행 중심, End-to-End는 호출·전송·출력 처리 오버헤드를 포함한 지표다. 따라서 두 throughput은 서로 다른 운영 경계를 나타낸다.
-
-## Validation 분석
-
-| Profile | Batch | Max difference | Mean difference | Allclose | Top-1 일치 | rtol | atol | Source |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| cuda | 1 | 0.00532269477844238 | 0.000812865153420717 | false | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_cuda_b1.json |
-| cuda | 4 | 0.00621175765991211 | 0.00113086972851306 | false | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_cuda_b4.json |
-| cuda | 16 | 0.00786256790161133 | 0.0012278911890462 | false | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_cuda_b16.json |
-| unspecified_device | 1 | 4.52995300292969e-06 | 7.13640815774852e-07 | true | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_b1.json |
-| unspecified_device | 4 | 4.76837158203125e-06 | 6.6589899461178e-07 | true | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_b4.json |
-| unspecified_device | 16 | 4.52995300292969e-06 | 7.04321621469717e-07 | true | true | 0.0001 | 1e-05 | benchmark/results/validation/validation_b16.json |
-
-- CUDA profile: allclose 통과 0/3, Top-1 일치 3/3.
-- 장치 미기록 profile: allclose 통과 3/3, Top-1 일치 3/3.
-- CUDA profile은 모든 batch에서 설정된 `rtol=0.0001`, `atol=1e-05` 기준 allclose에 실패했지만 Top-1 class는 모두 일치했다.
-- 장치 미기록 profile은 모든 batch에서 allclose와 Top-1 일치가 모두 true였다. 해당 JSON에 장치 정보가 없어 CPU 결과라고 단정하지 않았다.
-
-## 이상치와 가능한 원인
-
-- PyTorch CUDA, batch 16, GPU-only: Max 5.9654 ms가 P95 4.3125 ms의 1.38배. 이상치 후보.
-- PyTorch CUDA, batch 4, End-to-End: Max 9.2311 ms가 P95 4.6487 ms의 1.99배. 이상치 후보.
-- 가능한 원인: CUDA 비동기 동기화 지점, 최초 kernel/context 준비, 메모리 할당·복사, OS scheduling, 다른 프로세스의 GPU 점유, 온도·클럭 변동. 로그만으로 어느 원인인지 확정할 수 없다.
-- first inference와 initialization이 batch/실행별로 크게 달랐다. 실행 순서, 프로세스 재사용, cache 상태가 기록되지 않아 직접 비교에 주의가 필요하다.
-- CUDA validation 차이의 가능한 원인에는 backend별 연산 순서, kernel 구현, TF32/FP32 처리, 누적 반올림이 있다. 정밀도 설정과 연산별 오차 자료가 없어 확정할 수 없다.
-
-## 실험 한계
-
-- 모델명, ONNX Runtime 버전, 정밀도 설정, warm-up 횟수, 측정 반복 수가 로그에 없다.
-- 원시 iteration latency가 없어 분포 모양, 표준편차, confidence interval을 재계산할 수 없다.
-- 단일 호스트와 단일 GPU 결과라 다른 GPU·드라이버·소프트웨어 조합으로 일반화할 수 없다.
-- 실행 순서, 독립 프로세스 여부, cache 초기화, GPU clock·temperature·utilization이 기록되지 않았다.
-- `Actual providers`는 등록 Provider만 보여 주며 각 ONNX node가 CUDA에서 실행됐는지 증명하지 않는다.
-- validation 두 profile 중 장치 미기록 파일은 실행 장치를 확정할 수 없다.
-
-## 다음 실험 제안
-
-1. 모델명, ONNX Runtime/driver 버전, precision, warm-up·반복 수, seed를 로그에 추가한다.
-2. runtime·batch 조합을 독립 프로세스에서 여러 번 무작위 순서로 실행하고 원시 iteration latency를 저장한다.
-3. mean/median/P95뿐 아니라 표준편차와 95% confidence interval을 계산한다.
-4. GPU utilization, clock, temperature, power, memory 사용량을 측정 구간과 함께 기록한다.
-5. ONNX Runtime profiling으로 node별 Execution Provider 배치를 확인한다.
-6. TF32 허용 여부와 FP32/FP16 설정을 고정해 CUDA allclose 실패 원인을 분리한다.
-7. batch 2, 8, 32 및 saturation/OOM 지점까지 확장해 throughput 포화 구간을 찾는다.
-8. first inference를 CUDA context 준비, model/session 초기화, memory allocation, kernel 준비 단계로 분리 측정한다.
+- 모든 Runtime·Batch 조합에서 독립 실행 5회 이상을 확보했다.
+- GPU-only와 End-to-End 결과는 측정 경계가 다르므로 각각 별도로 해석해야 한다.
+- Telemetry와 Latency를 같은 run_id로 연결해 부하·클럭·온도 영향을 확인할 수 있다.
+- Profiler 결과가 존재하더라도 성능 원인은 Timeline과 Operator 자료를 직접 확인한 뒤 확정해야 한다.

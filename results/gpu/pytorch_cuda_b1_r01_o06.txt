@@ -1,0 +1,39 @@
+
+=== CUDA GPU-only inference ===
+Mean: 3.7497 ms
+Median: 3.7407 ms
+P95: 3.8505 ms
+P99: 3.8986 ms
+Min: 3.6941 ms
+Max: 4.0020 ms
+Stddev: 0.0404 ms
+95% CI: [3.7451, 3.7543] ms
+
+=== CUDA End-to-End inference ===
+Mean: 3.9293 ms
+Median: 3.9168 ms
+P95: 4.0173 ms
+P99: 4.0555 ms
+Min: 3.8670 ms
+Max: 4.1012 ms
+Stddev: 0.0391 ms
+95% CI: [3.9249, 3.9338] ms
+Hostname: moana-r2
+Device: cuda
+Run ID: r01_o06
+Run order: 6
+Model: resnet18
+Precision: fp32
+TF32: off
+GPU: NVIDIA GeForce RTX 3090
+PyTorch: 2.4.0+cu121
+CUDA runtime: 12.1
+cuDNN: 90100
+NVIDIA driver: 535.161.07
+Batch: 1
+Warm-up: 10
+Measurements: 300
+First inference: 384.5145 ms
+Raw latency saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/raw/pytorch_raw_cuda_b1_r01_o06.json
+Metrics saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_metrics_cuda_b1_r01_o06.json
+Output saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/pytorch/pytorch_output_cuda_b1_r01_o06.npy

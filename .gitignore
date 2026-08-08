@@ -24,3 +24,5 @@ local_archive/
 
 # Profiling trace files
 *.pt.trace.json
+
+.agents/AGENTS.md

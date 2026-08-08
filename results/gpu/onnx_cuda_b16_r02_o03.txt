@@ -1,0 +1,41 @@
+
+=== ONNX CUDA End-to-End ===
+Mean: 4.7212 ms
+Median: 4.6627 ms
+P95: 5.0712 ms
+P99: 5.1915 ms
+Min: 4.4587 ms
+Max: 5.6314 ms
+Stddev: 0.1952 ms
+95% CI: [4.6991, 4.7432] ms
+
+=== ONNX CUDA GPU-only IOBinding ===
+Mean: 3.8979 ms
+Median: 3.8971 ms
+P95: 3.9249 ms
+P99: 3.9999 ms
+Min: 3.7516 ms
+Max: 4.0326 ms
+Stddev: 0.0234 ms
+95% CI: [3.8952, 3.9005] ms
+Hostname: moana-r2
+Provider request: cuda
+Requested providers: [('CUDAExecutionProvider', {'device_id': 0, 'use_tf32': 0})]
+Actual providers: ['CUDAExecutionProvider', 'CPUExecutionProvider']
+Provider options: {'CPUExecutionProvider': {}, 'CUDAExecutionProvider': {'sdpa_kernel': '0', 'use_tf32': '0', 'fuse_conv_bias': '0', 'prefer_nhwc': '0', 'tunable_op_max_tuning_duration_ms': '0', 'enable_skip_layer_norm_strict_mode': '0', 'tunable_op_tuning_enable': '0', 'tunable_op_enable': '0', 'use_ep_level_unified_stream': '0', 'device_id': '0', 'has_user_compute_stream': '0', 'gpu_external_empty_cache': '0', 'cudnn_conv_algo_search': 'EXHAUSTIVE', 'cudnn_conv1d_pad_to_nc1d': '0', 'gpu_mem_limit': '18446744073709551615', 'gpu_external_alloc': '0', 'gpu_external_free': '0', 'arena_extend_strategy': 'kNextPowerOfTwo', 'do_copy_in_default_stream': '1', 'enable_cuda_graph': '0', 'user_compute_stream': '0', 'cudnn_conv_use_max_workspace': '1'}}
+Run ID: r02_o03
+Run order: 3
+Model: resnet18
+Precision: fp32
+TF32: off
+ONNX Runtime: 1.23.2
+GPU: NVIDIA GeForce RTX 3090
+NVIDIA driver: 535.161.07
+Batch: 16
+Warm-up: 10
+Measurements: 300
+Session loading: 258.0337 ms
+First inference: 651.4998 ms
+Raw latency saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/raw/onnx_raw_cuda_b16_r02_o03.json
+Metrics saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_metrics_cuda_b16_r02_o03.json
+Output saved: /data/tkiwi/project/hetro/hetero-systems-study/benchmark/results/onnx/onnx_output_cuda_b16_r02_o03.npy

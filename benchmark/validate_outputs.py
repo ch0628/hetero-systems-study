@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
@@ -5,178 +7,95 @@ from pathlib import Path
 import numpy as np
 
 
-parser = argparse.ArgumentParser(
-    description="Compare PyTorch and ONNX Runtime outputs"
-)
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Compare saved PyTorch and ONNX Runtime outputs"
+    )
+    parser.add_argument("--device", choices=["cpu", "cuda"], required=True)
+    parser.add_argument("--batch", type=int, required=True, choices=[1, 4, 16])
+    parser.add_argument("--rtol", type=float, default=1e-4)
+    parser.add_argument("--atol", type=float, default=1e-5)
+    parser.add_argument("--pytorch-output", type=Path)
+    parser.add_argument("--onnx-output", type=Path)
+    parser.add_argument("--validation-id", default="latest")
+    args = parser.parse_args()
 
-parser.add_argument(
-    "--device",
-    choices=["cpu", "cuda"],
-    default="cpu",
-)
+    benchmark_dir = Path(__file__).resolve().parent
+    pytorch_dir = benchmark_dir / "results" / "pytorch"
+    onnx_dir = benchmark_dir / "results" / "onnx"
+    validation_dir = benchmark_dir / "results" / "validation"
+    validation_dir.mkdir(parents=True, exist_ok=True)
 
-parser.add_argument(
-    "--batch",
-    type=int,
-    required=True,
-    choices=[1, 4, 16],
-)
+    pytorch_path = args.pytorch_output or (
+        pytorch_dir / f"pytorch_output_{args.device}_b{args.batch}.npy"
+    )
+    onnx_path = args.onnx_output or (
+        onnx_dir / f"onnx_output_{args.device}_b{args.batch}.npy"
+    )
+    if not pytorch_path.exists():
+        raise FileNotFoundError(f"PyTorch output not found: {pytorch_path}")
+    if not onnx_path.exists():
+        raise FileNotFoundError(f"ONNX output not found: {onnx_path}")
 
-args = parser.parse_args()
+    pytorch_output = np.load(pytorch_path)
+    onnx_output = np.load(onnx_path)
+    if pytorch_output.shape != onnx_output.shape:
+        raise ValueError(
+            f"Output shape mismatch: PyTorch={pytorch_output.shape}, "
+            f"ONNX={onnx_output.shape}"
+        )
 
+    absolute_difference = np.abs(pytorch_output - onnx_output)
+    pytorch_top1 = np.argmax(pytorch_output, axis=1)
+    onnx_top1 = np.argmax(onnx_output, axis=1)
+    top1_equal = pytorch_top1 == onnx_top1
 
-BENCHMARK_DIR = Path(__file__).resolve().parent
+    result = {
+        "device": args.device,
+        "batch_size": args.batch,
+        "validation_id": args.validation_id,
+        "pytorch_output_path": str(pytorch_path),
+        "onnx_output_path": str(onnx_path),
+        "output_shape": list(pytorch_output.shape),
+        "output_dtype_pytorch": str(pytorch_output.dtype),
+        "output_dtype_onnx": str(onnx_output.dtype),
+        "rtol": args.rtol,
+        "atol": args.atol,
+        "max_absolute_difference": float(np.max(absolute_difference)),
+        "mean_absolute_difference": float(np.mean(absolute_difference)),
+        "outputs_all_close": bool(
+            np.allclose(
+                pytorch_output,
+                onnx_output,
+                rtol=args.rtol,
+                atol=args.atol,
+            )
+        ),
+        "same_top1": bool(np.all(top1_equal)),
+        "top1_match_count": int(np.sum(top1_equal)),
+        "top1_total_count": int(top1_equal.size),
+        "pytorch_top1": pytorch_top1.tolist(),
+        "onnx_top1": onnx_top1.tolist(),
+    }
 
-PYTORCH_RESULT_DIR = (
-    BENCHMARK_DIR / "results" / "pytorch"
-)
-
-ONNX_RESULT_DIR = (
-    BENCHMARK_DIR / "results" / "onnx"
-)
-
-VALIDATION_RESULT_DIR = (
-    BENCHMARK_DIR / "results" / "validation"
-)
-
-VALIDATION_RESULT_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-
-
-if args.device == "cpu":
-    PYTORCH_OUTPUT_PATH = (
-        PYTORCH_RESULT_DIR
-        / f"pytorch_output_b{args.batch}.npy"
+    validation_path = (
+        validation_dir
+        / f"validation_{args.device}_b{args.batch}_{args.validation_id}.json"
+    )
+    validation_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
 
-    ONNX_OUTPUT_PATH = (
-        ONNX_RESULT_DIR
-        / f"onnx_output_b{args.batch}.npy"
-    )
-
-    VALIDATION_PATH = (
-        VALIDATION_RESULT_DIR
-        / f"validation_b{args.batch}.json"
-    )
-else:
-    PYTORCH_OUTPUT_PATH = (
-        PYTORCH_RESULT_DIR
-        / f"pytorch_output_cuda_b{args.batch}.npy"
-    )
-
-    ONNX_OUTPUT_PATH = (
-        ONNX_RESULT_DIR
-        / f"onnx_output_cuda_b{args.batch}.npy"
-    )
-
-    VALIDATION_PATH = (
-        VALIDATION_RESULT_DIR
-        / f"validation_cuda_b{args.batch}.json"
-    )
+    print("PyTorch output:", pytorch_path)
+    print("ONNX output:", onnx_path)
+    print("Output shape:", pytorch_output.shape)
+    print("Max absolute difference:", result["max_absolute_difference"])
+    print("Mean absolute difference:", result["mean_absolute_difference"])
+    print("Output all close:", result["outputs_all_close"])
+    print("Same Top-1:", result["same_top1"])
+    print("Validation saved:", validation_path)
 
 
-if not PYTORCH_OUTPUT_PATH.exists():
-    raise FileNotFoundError(
-        f"PyTorch output not found: "
-        f"{PYTORCH_OUTPUT_PATH}"
-    )
-
-if not ONNX_OUTPUT_PATH.exists():
-    raise FileNotFoundError(
-        f"ONNX output not found: "
-        f"{ONNX_OUTPUT_PATH}"
-    )
-
-
-pytorch_output = np.load(PYTORCH_OUTPUT_PATH)
-onnx_output = np.load(ONNX_OUTPUT_PATH)
-
-
-if pytorch_output.shape != onnx_output.shape:
-    raise ValueError(
-        f"Output shape mismatch: "
-        f"PyTorch={pytorch_output.shape}, "
-        f"ONNX={onnx_output.shape}"
-    )
-
-
-absolute_difference = np.abs(
-    pytorch_output - onnx_output
-)
-
-max_absolute_difference = float(
-    np.max(absolute_difference)
-)
-
-mean_absolute_difference = float(
-    np.mean(absolute_difference)
-)
-
-outputs_all_close = bool(
-    np.allclose(
-        pytorch_output,
-        onnx_output,
-        rtol=1e-4,
-        atol=1e-5,
-    )
-)
-
-pytorch_top1 = np.argmax(
-    pytorch_output,
-    axis=1,
-)
-
-onnx_top1 = np.argmax(
-    onnx_output,
-    axis=1,
-)
-
-same_top1 = bool(
-    np.array_equal(
-        pytorch_top1,
-        onnx_top1,
-    )
-)
-
-
-print("Device:", args.device)
-print("Batch:", args.batch)
-print("PyTorch shape:", pytorch_output.shape)
-print("ONNX shape:", onnx_output.shape)
-print(f"Max difference: {max_absolute_difference:.8e}")
-print(f"Mean difference: {mean_absolute_difference:.8e}")
-print("Output all close:", outputs_all_close)
-print("Same Top-1:", same_top1)
-
-
-result = {
-    "device": args.device,
-    "batch_size": args.batch,
-    "pytorch_output_path": str(PYTORCH_OUTPUT_PATH),
-    "onnx_output_path": str(ONNX_OUTPUT_PATH),
-    "output_shape": list(pytorch_output.shape),
-    "max_absolute_difference": max_absolute_difference,
-    "mean_absolute_difference": mean_absolute_difference,
-    "rtol": 1e-4,
-    "atol": 1e-5,
-    "outputs_all_close": outputs_all_close,
-    "pytorch_top1": pytorch_top1.tolist(),
-    "onnx_top1": onnx_top1.tolist(),
-    "same_top1": same_top1,
-}
-
-
-with VALIDATION_PATH.open(
-    "w",
-    encoding="utf-8",
-) as file:
-    json.dump(
-        result,
-        file,
-        indent=2,
-        ensure_ascii=False,
-    )
-
-print("Validation saved:", VALIDATION_PATH)
+if __name__ == "__main__":
+    main()
